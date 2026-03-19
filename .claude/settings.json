@@ -1,0 +1,66 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"c:/Users/sahara gaz pc/charity_app/frontend\" && flutter install -d A5CS024429001221 --debug 2>/dev/null || true",
+            "async": true,
+            "statusMessage": "جارٍ التثبيت على الجهاز..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"c:/Users/sahara gaz pc/charity_app/frontend\" && flutter install -d A5CS024429001221 --debug 2>/dev/null || true",
+            "async": true,
+            "statusMessage": "جارٍ التثبيت على الجهاز..."
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/**)",
+      "Bash(find '/c/Users/sahara gaz pc/AppData' -name *.dart -path *geolocator*)",
+      "Bash(flutter pub:*)",
+      "Bash(find /c/Users -path *pub/cache* -name *.dart)",
+      "Bash(flutter devices:*)",
+      "Bash(flutter doctor:*)",
+      "Bash(flutter install:*)",
+      "Bash(find 'c:/Users/sahara gaz pc/charity_app' -name *.png -o -name *.jpg -o -name *.jpeg -o -name *.gif)",
+      "Bash(find 'c:/Users/sahara gaz pc/charity_app/frontend' -name *.png -o -name *.jpg -o -name *.jpeg -o -name *.svg)",
+      "Bash(find 'c:/Users/sahara gaz pc/' -maxdepth 3 -name *.png -o -name *.jpg -o -name *.jpeg)",
+      "Bash(find 'c:/Users/sahara gaz pc/' -maxdepth 4 \\\\\\(-name *.png -o -name *.jpg -o -name *.jpeg \\\\\\))",
+      "Bash(flutter clean:*)",
+      "Bash(sed -i 's/activeColor: AppColors\\\\.primary,/activeThumbColor: AppColors.primary,/g' lib/features/settings/presentation/pages/settings_page.dart)",
+      "Bash(sed -i 's/activeColor: AppColors\\\\.success,/activeThumbColor: AppColors.success,/g' lib/features/settings/presentation/pages/settings_page.dart)",
+      "Bash(ls -lht c:/Users/sahara gaz pc/Downloads/*.png)",
+      "Bash(checkmark --version)",
+      "Bash(checkmark --help)",
+      "Bash(find '/c/Users/sahara gaz pc/' -name checkmark*)",
+      "Bash(dart pub:*)",
+      "Read(//c/Program Files//**)",
+      "Bash(code --list-extensions)",
+      "Skill(update-config)",
+      "Skill(update-config:*)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" -H \"Authorization: eyJhbGciOiJIUzUxMiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICIwYmEyODkyMi00ZWZjLTQ0YzMtYmUxZS0xYmE1ZGEyMjVkN2EifQ.eyJpYXQiOjE3NzM4MDcyODgsImp0aSI6IjMzZDczM2I0LWI4ZmYtNGVmOS05NmZiLTFkNGY2ZmY0ZWE1MSIsImlzcyI6Imh0dHBzOi8vaWFtLmNoZWNrbWFyeC5uZXQvYXV0aC9yZWFsbXMvY2hlY2ttYXJ4ZGV2YXNzaXN0dXMiLCJhdWQiOiJodHRwczovL2lhbS5jaGVja21hcngubmV0L2F1dGgvcmVhbG1zL2NoZWNrbWFyeGRldmFzc2lzdHVzIiwic3ViIjoiNjVlNTAxZWYtMWFlOC00OTQyLTlhZGMtNmYzMzVjZDJiOWExIiwidHlwIjoiT2ZmbGluZSIsImF6cCI6ImFzdC1hcHAiLCJzaWQiOiJkOWY3ZWMyZS1lNzMzLTRlZWUtYjc2My1iNjUxYzZkNjIwOWYiLCJzY29wZSI6ImlhbS1hcGkgcm9sZXMgcHJvZmlsZSBlbWFpbCBhc3QtYXBpIG9mZmxpbmVfYWNjZXNzIn0.0jSRwcmSQycP5CBlBP0i1HVh8gq_Q3fej4kgBIFtGhG--YhvuVoLiaHK4IiiRdfNm1FBXG3HT0dN1zcBmGFaKw\" -H \"cx-origin: VsCode\" \"https://ast.checkmarx.net/api/security-mcp/mcp\")",
+      "Bash(curl -s -m 5 -D - -H \"Authorization: eyJhbGciOiJIUzUxMiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICIwYmEyODkyMi00ZWZjLTQ0YzMtYmUxZS0xYmE1ZGEyMjVkN2EifQ.eyJpYXQiOjE3NzM4MDcyODgsImp0aSI6IjMzZDczM2I0LWI4ZmYtNGVmOS05NmZiLTFkNGY2ZmY0ZWE1MSIsImlzcyI6Imh0dHBzOi8vaWFtLmNoZWNrbWFyeC5uZXQvYXV0aC9yZWFsbXMvY2hlY2ttYXJ4ZGV2YXNzaXN0dXMiLCJhdWQiOiJodHRwczovL2lhbS5jaGVja21hcngubmV0L2F1dGgvcmVhbG1zL2NoZWNrbWFyeGRldmFzc2lzdHVzIiwic3ViIjoiNjVlNTAxZWYtMWFlOC00OTQyLTlhZGMtNmYzMzVjZDJiOWExIiwidHlwIjoiT2ZmbGluZSIsImF6cCI6ImFzdC1hcHAiLCJzaWQiOiJkOWY3ZWMyZS1lNzMzLTRlZWUtYjc2My1iNjUxYzZkNjIwOWYiLCJzY29wZSI6ImlhbS1hcGkgcm9sZXMgcHJvZmlsZSBlbWFpbCBhc3QtYXBpIG9mZmxpbmVfYWNjZXNzIn0.0jSRwcmSQycP5CBlBP0i1HVh8gq_Q3fej4kgBIFtGhG--YhvuVoLiaHK4IiiRdfNm1FBXG3HT0dN1zcBmGFaKw\" -H \"cx-origin: VsCode\" \"https://ast.checkmarx.net/api/security-mcp/mcp\")",
+      "Bash(npm --version)",
+      "Bash(node -e \"const d=require\\(''''fs''''\\).readFileSync\\(''''/dev/stdin'''',''''utf8''''\\); const j=JSON.parse\\(d\\); console.log\\(j.servers[''''Checkmarx Developer Assist''''].headers.Authorization\\)\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://127.0.0.1:3741)"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\sahara gaz pc\\Downloads",
+      "C:\\Users\\sahara gaz pc\\AppData\\Roaming\\Code\\User",
+      "C:\\Users\\sahara gaz pc\\.claude"
+    ]
+  }
+}

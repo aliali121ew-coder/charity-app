@@ -1,0 +1,76 @@
+name: charity_app
+description: A production-grade charity organization management application.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # State Management
+  flutter_riverpod: ^3.3.1
+
+  # Navigation
+  go_router: ^17.1.0
+
+  # Charts
+  fl_chart: ^1.2.0
+
+  # Fonts & Icons
+  google_fonts: ^8.0.2
+
+  # Storage
+  shared_preferences: ^2.3.2
+
+  # Utilities
+  equatable: ^2.0.5
+  intl: ^0.20.0
+  uuid: ^4.4.2
+  http: ^1.2.2
+
+  # Map & Location
+  flutter_map: ^8.2.2
+  latlong2: ^0.9.0
+  geolocator: ^14.0.2
+
+  # Images
+  cached_network_image: ^3.4.1
+
+  # External links / deep links
+  url_launcher: ^6.3.1
+  android_intent_plus: ^5.1.0
+
+  # WebView (hosted payment page / 3DS / OTP)
+  webview_flutter: ^4.10.0
+
+  # Loading / Shimmer
+  shimmer: ^3.0.0
+
+  # Progress indicators
+  percent_indicator: ^4.2.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.3
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/icons/
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icons/ICON.png"
+  min_sdk_android: 21
+  adaptive_icon_background: "#0D5C28"
+  adaptive_icon_foreground: "assets/icons/ICON.png"

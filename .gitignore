@@ -1,0 +1,12 @@
+frontend/build/
+frontend/.dart_tool/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+backend/.dart_tool/
+*.dart_tool/
+.env
+checkmarx-token.txt
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
