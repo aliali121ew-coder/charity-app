@@ -23,6 +23,10 @@ class UserModel {
 
   bool hasPermission(Permission permission) => permissions.contains(permission);
 
+  /// Admin or employee — can view all requests and approve them.
+  bool get isPrivileged =>
+      role == UserRole.admin || role == UserRole.employee;
+
   factory UserModel.admin({
     required String id,
     required String name,
@@ -52,6 +56,24 @@ class UserModel {
       role: UserRole.employee,
       avatarUrl: avatarUrl,
       permissions: defaultPermissions[UserRole.employee]!,
+    );
+  }
+
+  factory UserModel.beneficiary({
+    required String id,
+    required String name,
+    required String email,
+    String? avatarUrl,
+    String? phone,
+  }) {
+    return UserModel(
+      id: id,
+      name: name,
+      email: email,
+      role: UserRole.beneficiary,
+      avatarUrl: avatarUrl,
+      phone: phone,
+      permissions: defaultPermissions[UserRole.beneficiary]!,
     );
   }
 

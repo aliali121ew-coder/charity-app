@@ -54,7 +54,7 @@ class AidPage extends ConsumerWidget {
 
               // Summary cards (horizontal scroll)
               SizedBox(
-                height: 90,
+                height: 100,
                 child: ListView(
                   scrollDirection: Axis.horizontal,
                   children: [

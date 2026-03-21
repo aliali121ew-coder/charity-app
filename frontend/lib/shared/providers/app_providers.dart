@@ -112,11 +112,17 @@ class AuthNotifier extends Notifier<AuthState> {
               name: 'مدير النظام',
               email: 'admin@charity.org',
             )
-          : UserModel.employee(
-              id: userId,
-              name: 'موظف',
-              email: 'employee@charity.org',
-            );
+          : role == 'employee'
+              ? UserModel.employee(
+                  id: userId,
+                  name: 'موظف',
+                  email: 'employee@charity.org',
+                )
+              : UserModel.beneficiary(
+                  id: userId,
+                  name: 'مستخدم',
+                  email: 'user@charity.org',
+                );
       return AuthState(user: user);
     }
     return const AuthState();
@@ -158,14 +164,17 @@ class AuthNotifier extends Notifier<AuthState> {
         return false;
       }
 
-      final role = (user['role'] ?? 'employee').toString();
+      final role = (user['role'] ?? 'user').toString();
       final userId = (user['id'] ?? '').toString();
       final name = (user['name'] ?? '').toString();
       final emailRes = (user['email'] ?? email).toString();
 
       final userModel = role == 'admin'
           ? UserModel.admin(id: userId, name: name, email: emailRes)
-          : UserModel.employee(id: userId, name: name, email: emailRes);
+          : role == 'employee'
+              ? UserModel.employee(id: userId, name: name, email: emailRes)
+              : UserModel.beneficiary(
+                  id: userId, name: name, email: emailRes);
 
       await _prefs.setString(AppConstants.prefAuthToken, token);
       await _prefs.setString(AppConstants.prefUserRole, role);

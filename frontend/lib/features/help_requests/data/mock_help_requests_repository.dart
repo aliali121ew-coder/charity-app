@@ -13,6 +13,7 @@ class MockHelpRequestsRepository implements HelpRequestsRepository {
       type: RequestType.foodBasket,
       status: RequestStatus.approved,
       submittedAt: DateTime.now().subtract(const Duration(hours: 3)),
+      submittedByUserId: 'user_002',
       fullName: 'أم حسن الكريمي',
       phone: '07901234567',
       governorate: 'بغداد',
@@ -50,6 +51,7 @@ class MockHelpRequestsRepository implements HelpRequestsRepository {
       type: RequestType.doctorBooking,
       status: RequestStatus.underReview,
       submittedAt: DateTime.now().subtract(const Duration(days: 1)),
+      submittedByUserId: 'user_003',
       fullName: 'محمد عبد الله السامرائي',
       phone: '07812345678',
       governorate: 'بغداد',
@@ -89,6 +91,7 @@ class MockHelpRequestsRepository implements HelpRequestsRepository {
       type: RequestType.financial,
       status: RequestStatus.pending,
       submittedAt: DateTime.now().subtract(const Duration(minutes: 5)),
+      submittedByUserId: 'user_001',
       fullName: 'فاطمة علي الحسيني',
       phone: '07723456789',
       governorate: 'كربلاء',
@@ -119,6 +122,7 @@ class MockHelpRequestsRepository implements HelpRequestsRepository {
       type: RequestType.treatment,
       status: RequestStatus.completed,
       submittedAt: DateTime.now().subtract(const Duration(days: 5)),
+      submittedByUserId: 'user_001',
       fullName: 'عمر جاسم العبيدي',
       phone: '07634567890',
       governorate: 'البصرة',
@@ -165,6 +169,7 @@ class MockHelpRequestsRepository implements HelpRequestsRepository {
       type: RequestType.householdMaterials,
       status: RequestStatus.rejected,
       submittedAt: DateTime.now().subtract(const Duration(days: 2)),
+      submittedByUserId: 'user_004',
       fullName: 'زينب حمد الشمري',
       phone: '07545678901',
       governorate: 'الأنبار',
@@ -195,6 +200,7 @@ class MockHelpRequestsRepository implements HelpRequestsRepository {
       type: RequestType.generalHelp,
       status: RequestStatus.underReview,
       submittedAt: DateTime.now().subtract(const Duration(hours: 12)),
+      submittedByUserId: 'user_005',
       fullName: 'أحمد كاظم المالكي',
       phone: '07456789012',
       governorate: 'النجف',
@@ -254,6 +260,14 @@ class MockHelpRequestsRepository implements HelpRequestsRepository {
     if (!_requests[index].isEditable) return null;
     _requests[index] = request;
     return request;
+  }
+
+  @override
+  HelpRequest? forceUpdateStatus(String id, RequestStatus newStatus) {
+    final index = _requests.indexWhere((r) => r.id == id);
+    if (index == -1) return null;
+    _requests[index] = _requests[index].copyWith(status: newStatus);
+    return _requests[index];
   }
 
   @override

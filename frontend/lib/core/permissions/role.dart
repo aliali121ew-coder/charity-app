@@ -1,4 +1,4 @@
-enum UserRole { admin, employee }
+enum UserRole { admin, employee, beneficiary }
 
 enum Permission {
   // Subscribers
@@ -78,4 +78,5 @@ const Map<UserRole, Set<Permission>> defaultPermissions = {
     Permission.viewLogs,
     Permission.viewDashboard,
   },
+  UserRole.beneficiary: {},
 };

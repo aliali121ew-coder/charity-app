@@ -46,7 +46,13 @@ class _EditWindowIndicatorState extends State<EditWindowIndicator> {
   Widget build(BuildContext context) {
     final isEditable = _secondsRemaining > 0;
 
+    // Only show the expired badge if the request was submitted very recently
+    // (within 2× the edit window). For older requests it is not relevant.
     if (!isEditable) {
+      final age = DateTime.now().difference(widget.request.submittedAt);
+      final showExpired =
+          age.inMinutes <= HelpRequest.editWindowMinutes * 2;
+      if (!showExpired) return const SizedBox.shrink();
       return _ExpiredBadge();
     }
 

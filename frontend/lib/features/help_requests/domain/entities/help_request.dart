@@ -11,6 +11,9 @@ class HelpRequest extends Equatable {
   final RequestStatus status;
   final DateTime submittedAt;
 
+  // Owner
+  final String? submittedByUserId;
+
   // Personal info
   final String fullName;
   final String phone;
@@ -39,6 +42,7 @@ class HelpRequest extends Equatable {
     required this.type,
     required this.status,
     required this.submittedAt,
+    this.submittedByUserId,
     required this.fullName,
     required this.phone,
     required this.governorate,
@@ -71,6 +75,7 @@ class HelpRequest extends Equatable {
 
   HelpRequest copyWith({
     RequestStatus? status,
+    String? submittedByUserId,
     String? fullName,
     String? phone,
     String? governorate,
@@ -90,6 +95,7 @@ class HelpRequest extends Equatable {
       type: type,
       status: status ?? this.status,
       submittedAt: submittedAt,
+      submittedByUserId: submittedByUserId ?? this.submittedByUserId,
       fullName: fullName ?? this.fullName,
       phone: phone ?? this.phone,
       governorate: governorate ?? this.governorate,

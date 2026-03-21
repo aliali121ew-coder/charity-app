@@ -743,112 +743,392 @@ class _UserCard extends ConsumerWidget {
   }
 }
 
-// ── Dialog: Add User ──────────────────────────────────────────────────────────
+// ── Bottom Sheet: Add User ────────────────────────────────────────────────────
 Future<void> _showAddUserDialog(BuildContext context, WidgetRef ref) async {
   final nameCtrl = TextEditingController();
+  final usernameCtrl = TextEditingController();
   final emailCtrl = TextEditingController();
+  final passCtrl = TextEditingController();
+  final confirmPassCtrl = TextEditingController();
   UserRole selectedRole = UserRole.employee;
+  bool passVisible = false;
+  bool confirmPassVisible = false;
+  String? errorMsg;
 
-  await showDialog<void>(
+  await showModalBottomSheet<void>(
     context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
     builder: (ctx) => StatefulBuilder(
-      builder: (ctx, setState) => AlertDialog(
-        title: Text('إضافة مستخدم جديد',
-            style: GoogleFonts.cairo(fontWeight: FontWeight.w700)),
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameCtrl,
-              textDirection: TextDirection.rtl,
-              decoration: InputDecoration(
-                labelText: 'الاسم الكامل',
-                labelStyle: GoogleFonts.cairo(),
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10)),
-                prefixIcon: const Icon(Icons.person_outline),
-              ),
-              style: GoogleFonts.cairo(),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: emailCtrl,
-              keyboardType: TextInputType.emailAddress,
-              decoration: InputDecoration(
-                labelText: 'البريد الإلكتروني',
-                labelStyle: GoogleFonts.cairo(),
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10)),
-                prefixIcon: const Icon(Icons.email_outlined),
-              ),
-              style: GoogleFonts.cairo(),
-            ),
-            const SizedBox(height: 12),
-            // Role selector
-            Container(
-              decoration: BoxDecoration(
-                border: Border.all(color: AppColors.borderLight),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Column(
-                children: [
-                  ListTile(
-                    dense: true,
-                    onTap: () => setState(() => selectedRole = UserRole.employee),
-                    leading: Radio<UserRole>(
-                      value: UserRole.employee,
-                      groupValue: selectedRole,
-                      onChanged: (v) => setState(() => selectedRole = v!),
-                      activeColor: AppColors.primary,
-                    ),
-                    title: Text('موظف', style: GoogleFonts.cairo()),
-                  ),
-                  ListTile(
-                    dense: true,
-                    onTap: () => setState(() => selectedRole = UserRole.admin),
-                    leading: Radio<UserRole>(
-                      value: UserRole.admin,
-                      groupValue: selectedRole,
-                      onChanged: (v) => setState(() => selectedRole = v!),
-                      activeColor: AppColors.primary,
-                    ),
-                    title: Text('مدير النظام', style: GoogleFonts.cairo()),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('إلغاء', style: GoogleFonts.cairo()),
+      builder: (ctx, setState) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        final sheetBg = isDark ? const Color(0xFF1E2235) : Colors.white;
+        final inputBorder = OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(
+            color: isDark ? AppColors.borderDark : AppColors.borderLight,
           ),
-          ElevatedButton(
-            onPressed: () {
-              if (nameCtrl.text.trim().isNotEmpty &&
-                  emailCtrl.text.trim().isNotEmpty) {
-                ref.read(usersProvider.notifier).addUser(
-                      name: nameCtrl.text.trim(),
-                      email: emailCtrl.text.trim(),
-                      role: selectedRole,
-                    );
-                Navigator.pop(ctx);
-              }
-            },
-            style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary),
-            child: Text('إضافة',
-                style: GoogleFonts.cairo(color: Colors.white)),
+        );
+        final focusedBorder = OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: AppColors.primary, width: 1.5),
+        );
+
+        Widget field({
+          required TextEditingController controller,
+          required String label,
+          required IconData icon,
+          TextInputType keyboardType = TextInputType.text,
+          bool obscure = false,
+          bool? isVisible,
+          VoidCallback? onToggleVisibility,
+        }) {
+          return TextField(
+            controller: controller,
+            textDirection: TextDirection.rtl,
+            keyboardType: keyboardType,
+            obscureText: obscure && !(isVisible ?? false),
+            style: GoogleFonts.cairo(fontSize: 14),
+            decoration: InputDecoration(
+              labelText: label,
+              labelStyle: GoogleFonts.cairo(
+                fontSize: 13,
+                color: isDark
+                    ? AppColors.textSecondaryDark
+                    : AppColors.textSecondaryLight,
+              ),
+              prefixIcon: Icon(icon, size: 18, color: AppColors.primary),
+              suffixIcon: obscure
+                  ? IconButton(
+                      icon: Icon(
+                        (isVisible ?? false)
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                        size: 18,
+                        color: isDark
+                            ? AppColors.textSecondaryDark
+                            : AppColors.textSecondaryLight,
+                      ),
+                      onPressed: onToggleVisibility,
+                    )
+                  : null,
+              border: inputBorder,
+              enabledBorder: inputBorder,
+              focusedBorder: focusedBorder,
+              filled: true,
+              fillColor: isDark
+                  ? AppColors.surfaceVariantDark
+                  : const Color(0xFFF8FAFC),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            ),
+          );
+        }
+
+        final roles = [
+          (UserRole.admin, 'مدير النظام', Icons.admin_panel_settings_rounded,
+              const Color(0xFF7C3AED)),
+          (UserRole.employee, 'موظف', Icons.badge_rounded,
+              const Color(0xFF0EA5E9)),
+          (UserRole.beneficiary, 'مستخدم', Icons.person_rounded,
+              const Color(0xFF10B981)),
+        ];
+
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
           ),
-        ],
-      ),
+          child: Container(
+            decoration: BoxDecoration(
+              color: sheetBg,
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Handle
+                Container(
+                  margin: const EdgeInsets.only(top: 12),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? AppColors.borderDark
+                        : AppColors.borderLight,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+
+                // Header
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          gradient: AppColors.gradientBlue,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.person_add_rounded,
+                            color: Colors.white, size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'إضافة مستخدم جديد',
+                            style: GoogleFonts.cairo(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: isDark
+                                  ? AppColors.textPrimaryDark
+                                  : AppColors.textPrimaryLight,
+                            ),
+                          ),
+                          Text(
+                            'أدخل بيانات المستخدم والصلاحيات',
+                            style: GoogleFonts.cairo(
+                              fontSize: 11,
+                              color: isDark
+                                  ? AppColors.textSecondaryDark
+                                  : AppColors.textSecondaryLight,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        icon: Icon(Icons.close_rounded,
+                            color: isDark
+                                ? AppColors.textSecondaryDark
+                                : AppColors.textSecondaryLight),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const Divider(height: 24),
+
+                // Form fields
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      field(
+                        controller: nameCtrl,
+                        label: 'الاسم الكامل',
+                        icon: Icons.person_outline_rounded,
+                      ),
+                      const SizedBox(height: 10),
+                      field(
+                        controller: usernameCtrl,
+                        label: 'اسم المستخدم',
+                        icon: Icons.alternate_email_rounded,
+                      ),
+                      const SizedBox(height: 10),
+                      field(
+                        controller: emailCtrl,
+                        label: 'البريد الإلكتروني',
+                        icon: Icons.email_outlined,
+                        keyboardType: TextInputType.emailAddress,
+                      ),
+                      const SizedBox(height: 10),
+                      field(
+                        controller: passCtrl,
+                        label: 'كلمة المرور',
+                        icon: Icons.lock_outline_rounded,
+                        obscure: true,
+                        isVisible: passVisible,
+                        onToggleVisibility: () =>
+                            setState(() => passVisible = !passVisible),
+                      ),
+                      const SizedBox(height: 10),
+                      field(
+                        controller: confirmPassCtrl,
+                        label: 'تأكيد كلمة المرور',
+                        icon: Icons.lock_reset_rounded,
+                        obscure: true,
+                        isVisible: confirmPassVisible,
+                        onToggleVisibility: () => setState(
+                            () => confirmPassVisible = !confirmPassVisible),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Role selector
+                      Text(
+                        'نوع الحساب',
+                        style: GoogleFonts.cairo(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: isDark
+                              ? AppColors.textPrimaryDark
+                              : AppColors.textPrimaryLight,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: roles.map((item) {
+                          final (role, label, icon, color) = item;
+                          final isSelected = selectedRole == role;
+                          return Expanded(
+                            child: GestureDetector(
+                              onTap: () =>
+                                  setState(() => selectedRole = role),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                margin: const EdgeInsets.only(left: 6),
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? color.withValues(alpha: 0.12)
+                                      : isDark
+                                          ? AppColors.surfaceVariantDark
+                                          : const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? color
+                                        : isDark
+                                            ? AppColors.borderDark
+                                            : AppColors.borderLight,
+                                    width: isSelected ? 1.5 : 1,
+                                  ),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Icon(icon,
+                                        size: 22,
+                                        color: isSelected
+                                            ? color
+                                            : isDark
+                                                ? AppColors.textSecondaryDark
+                                                : AppColors
+                                                    .textSecondaryLight),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      label,
+                                      style: GoogleFonts.cairo(
+                                        fontSize: 11,
+                                        fontWeight: isSelected
+                                            ? FontWeight.w700
+                                            : FontWeight.w500,
+                                        color: isSelected
+                                            ? color
+                                            : isDark
+                                                ? AppColors.textSecondaryDark
+                                                : AppColors
+                                                    .textSecondaryLight,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+
+                      // Error message
+                      if (errorMsg != null) ...[
+                        const SizedBox(height: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEF4444).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.error_outline_rounded,
+                                  size: 14, color: Color(0xFFEF4444)),
+                              const SizedBox(width: 6),
+                              Text(
+                                errorMsg!,
+                                style: GoogleFonts.cairo(
+                                  fontSize: 12,
+                                  color: const Color(0xFFEF4444),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+
+                      const SizedBox(height: 16),
+
+                      // Submit button
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            final name = nameCtrl.text.trim();
+                            final email = emailCtrl.text.trim();
+                            final pass = passCtrl.text;
+                            final confirm = confirmPassCtrl.text;
+
+                            if (name.isEmpty || email.isEmpty || pass.isEmpty) {
+                              setState(() =>
+                                  errorMsg = 'يرجى تعبئة جميع الحقول المطلوبة');
+                              return;
+                            }
+                            if (pass != confirm) {
+                              setState(() =>
+                                  errorMsg = 'كلمة المرور غير متطابقة');
+                              return;
+                            }
+
+                            ref.read(usersProvider.notifier).addUser(
+                                  name: name,
+                                  email: email,
+                                  role: selectedRole,
+                                );
+                            Navigator.pop(ctx);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            padding:
+                                const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: Text(
+                            'إضافة المستخدم',
+                            style: GoogleFonts.cairo(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                          height: MediaQuery.of(ctx).padding.bottom + 16),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     ),
   );
+
   nameCtrl.dispose();
+  usernameCtrl.dispose();
   emailCtrl.dispose();
+  passCtrl.dispose();
+  confirmPassCtrl.dispose();
 }
 
 // ── Bottom Sheet: User Permissions ────────────────────────────────────────────
