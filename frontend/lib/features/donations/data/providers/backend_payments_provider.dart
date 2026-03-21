@@ -13,7 +13,7 @@ class BackendPaymentsProvider implements PaymentProviderInterface {
 
   Uri get _apiBase => Uri.parse(const String.fromEnvironment(
         'API_BASE_URL',
-        defaultValue: 'http://localhost:8080',
+        defaultValue: 'https://charity-backend-production-0223.up.railway.app',
       ));
 
   Future<String?> _token() async {

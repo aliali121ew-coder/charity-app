@@ -100,7 +100,7 @@ class AuthNotifier extends Notifier<AuthState> {
     _routerNotifier = ref.watch(authRouterNotifierProvider);
     _apiBase = Uri.parse(const String.fromEnvironment(
       'API_BASE_URL',
-      defaultValue: 'http://localhost:8080',
+      defaultValue: 'https://charity-backend-production-0223.up.railway.app',
     ));
     final token = _prefs.getString(AppConstants.prefAuthToken);
     final role = _prefs.getString(AppConstants.prefUserRole);
