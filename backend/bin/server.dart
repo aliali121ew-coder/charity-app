@@ -101,6 +101,16 @@ void main() async {
   router.get('/health', (Request req) => Response.ok('{"status":"ok"}',
       headers: {'Content-Type': 'application/json'}));
 
+  // App version check (public - no auth required)
+  router.get('/api/version', (Request req) {
+    final latestVersion = Platform.environment['APP_VERSION'] ?? '1.0.0';
+    final downloadUrl = Platform.environment['APK_DOWNLOAD_URL'] ?? '';
+    return Response.ok(
+      '{"version":"$latestVersion","download_url":"$downloadUrl","force_update":true}',
+      headers: {'Content-Type': 'application/json'},
+    );
+  });
+
   // Payment landing pages (used for WebView success/cancel detection)
   router.get('/payment/success', (Request req) {
     final sessionId = req.url.queryParameters['sessionId'] ?? '';
@@ -168,6 +178,7 @@ Middleware get _authMiddleware {
           request.url.path.startsWith('api/payments/webhooks/') ||
           request.url.path.startsWith('api/payments/redirect/') ||
           request.url.path == 'health' ||
+          request.url.path == 'api/version' ||
           request.method == 'OPTIONS') {
         return innerHandler(request);
       }
