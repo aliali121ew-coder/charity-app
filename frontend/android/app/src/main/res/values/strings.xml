@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        Google Sign-In — Web OAuth 2.0 Client ID
+        Steps to get this value:
+          1. Go to https://console.cloud.google.com
+          2. Select your project (or create one)
+          3. APIs & Services → Credentials
+          4. Create → OAuth client ID → Web application
+          5. Copy the client ID and paste it below (replace REPLACE_ME)
+          6. Also add your app's SHA-1 fingerprint:
+             Run: ./gradlew signingReport  (or keytool -list -v -keystore debug.keystore)
+             Then add the SHA-1 under APIs & Services → Credentials → Android client ID
+    -->
+    <string name="default_web_client_id">REPLACE_ME.apps.googleusercontent.com</string>
+</resources>

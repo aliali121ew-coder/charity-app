@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:charity_app/shared/providers/app_providers.dart';
 import 'package:charity_app/features/auth/presentation/pages/login_page.dart';
+import 'package:charity_app/features/auth/presentation/pages/email_auth_page.dart';
+import 'package:charity_app/features/auth/presentation/pages/forgot_password_page.dart';
 import 'package:charity_app/features/dashboard/presentation/pages/dashboard_page.dart';
 import 'package:charity_app/features/subscribers/presentation/pages/subscribers_page.dart';
 import 'package:charity_app/features/families/presentation/pages/families_page.dart';
@@ -27,6 +29,8 @@ import 'package:charity_app/features/splash/presentation/pages/splash_page.dart'
 class AppRoutes {
   static const String splash = '/';
   static const String login = '/login';
+  static const String authEmail = '/auth/email';
+  static const String authForgot = '/auth/forgot-password';
   static const String dashboard = '/dashboard';
   static const String subscribers = '/subscribers';
   static const String families = '/families';
@@ -52,14 +56,37 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: AppRoutes.splash,
     refreshListenable: routerNotifier,
     redirect: (context, state) {
-      final isLoggedIn = ref.read(authProvider).isAuthenticated;
-      final onSplash = state.matchedLocation == AppRoutes.splash;
-      final onLogin = state.matchedLocation == AppRoutes.login;
+      final authState = ref.read(authProvider);
+      final loc = state.matchedLocation;
 
-      // Let splash play freely; do not redirect away from it
+      final onSplash = loc == AppRoutes.splash;
+      final onAuthRoute = loc == AppRoutes.login ||
+          loc == AppRoutes.authEmail ||
+          loc == AppRoutes.authForgot;
+
+      // Let splash play freely
       if (onSplash) return null;
-      if (!isLoggedIn && !onLogin) return AppRoutes.login;
-      if (isLoggedIn && onLogin) return AppRoutes.works;
+
+      // Not authenticated and not guest → go to login
+      if (!authState.hasAccess && !onAuthRoute) return AppRoutes.login;
+
+      // Already authenticated/guest → leave auth screens
+      if (authState.hasAccess && onAuthRoute) return AppRoutes.works;
+
+      // Guest: only allow public routes
+      if (authState.isGuest && !authState.isAuthenticated) {
+        const guestAllowed = [
+          AppRoutes.works,
+          AppRoutes.feed,
+          AppRoutes.donations,
+          AppRoutes.helpRequests,
+        ];
+        final allowed = guestAllowed.any(
+          (r) => loc == r || loc.startsWith('$r/'),
+        );
+        if (!allowed) return AppRoutes.works;
+      }
+
       return null;
     },
     routes: [
@@ -75,6 +102,19 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.login,
         name: 'login',
         builder: (context, state) => const LoginPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.authEmail,
+        name: 'authEmail',
+        builder: (context, state) {
+          final tab = state.uri.queryParameters['tab'] ?? 'login';
+          return EmailAuthPage(initialTab: tab);
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.authForgot,
+        name: 'authForgot',
+        builder: (context, state) => const ForgotPasswordPage(),
       ),
 
       // ── Main Shell ────────────────────────────────────────

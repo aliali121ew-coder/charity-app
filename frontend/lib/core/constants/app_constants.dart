@@ -42,6 +42,9 @@ abstract class AppConstants {
   static const String prefAuthToken = 'auth_token';
   static const String prefUserRole = 'user_role';
   static const String prefUserId = 'user_id';
+  static const String prefIsGuest = 'is_guest';
+  static const String prefUserName = 'user_name';
+  static const String prefUserEmail = 'user_email';
 
   // Pagination
   static const int pageSize = 20;

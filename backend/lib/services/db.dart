@@ -79,6 +79,48 @@ ON donations(date DESC);
 CREATE INDEX IF NOT EXISTS donations_status_idx
 ON donations(status);
 ''');
+
+    // ── Users table ──────────────────────────────────────────────────────────
+    await conn.execute('''
+CREATE TABLE IF NOT EXISTS users (
+  id           TEXT PRIMARY KEY,
+  name         TEXT NOT NULL,
+  email        TEXT UNIQUE NOT NULL,
+  phone        TEXT,
+  username     TEXT UNIQUE,
+  password_hash TEXT,
+  google_id    TEXT UNIQUE,
+  role         TEXT NOT NULL DEFAULT 'beneficiary',
+  is_active    BOOLEAN NOT NULL DEFAULT true,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+''');
+
+    await conn.execute('''
+CREATE INDEX IF NOT EXISTS users_email_idx ON users(email);
+''');
+
+    await conn.execute('''
+CREATE INDEX IF NOT EXISTS users_username_idx ON users(username)
+WHERE username IS NOT NULL;
+''');
+
+    // ── OTP codes table ──────────────────────────────────────────────────────
+    await conn.execute('''
+CREATE TABLE IF NOT EXISTS otp_codes (
+  id             TEXT PRIMARY KEY,
+  email_or_phone TEXT NOT NULL,
+  code           TEXT NOT NULL,
+  expires_at     TIMESTAMPTZ NOT NULL,
+  used           BOOLEAN NOT NULL DEFAULT false,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+''');
+
+    await conn.execute('''
+CREATE INDEX IF NOT EXISTS otp_lookup_idx
+ON otp_codes(email_or_phone, used, expires_at);
+''');
   }
 }
 

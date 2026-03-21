@@ -22,7 +22,8 @@ import 'package:charity_backend/services/db.dart';
 import 'package:charity_backend/services/myfatoorah_service.dart';
 import 'package:charity_backend/services/zaincash_service.dart';
 
-final _authService = AuthService();
+// Shared auth service — set during main() and reused in middleware
+late AuthService _authService;
 
 // ── CORS: allowed origins (add your frontend URL in production) ───────────────
 const _allowedOrigins = ['http://localhost:3000', 'http://localhost:8080'];
@@ -38,12 +39,15 @@ void main() async {
     await db.ensureSchema();
     paymentsStore = PaymentsRepositoryPg(db);
     donationsStore = DonationsRepositoryPg(db);
-    print('✅ Payments DB connected');
+    print('✅ Database connected');
   } else {
     paymentsStore = PaymentsRepositoryMemory();
     donationsStore = DonationsRepositoryMemory();
-    print('⚠️  Payments DB not configured; using in-memory store');
+    print('⚠️  DATABASE_URL not set — using in-memory store');
   }
+
+  // ── Auth service (shared across routes + middleware) ──────────────────────
+  _authService = AuthService(db: db);
 
   // ── Payment provider configs (env) ────────────────────────────────────────
   final myFatoorahApiKey = Platform.environment['MYFATOORAH_API_KEY'] ?? '';
@@ -81,7 +85,7 @@ void main() async {
   final router = Router();
 
   // Mount sub-routers
-  router.mount('/api/auth/', AuthRoutes().router);
+  router.mount('/api/auth/', AuthRoutes(_authService).router);
   router.mount('/api/subscribers/', SubscribersRoutes().router);
   router.mount('/api/families/', FamiliesRoutes().router);
   router.mount('/api/aid/', AidRoutes().router);
@@ -156,17 +160,14 @@ void main() async {
       .addHandler(router.call);
 
   final server = await io.serve(handler, InternetAddress.anyIPv4, port);
-  print('✅ Charity Backend API running on http://localhost:${server.port}');
-  print('   Routes:');
+  print('✅ Charity Backend running on http://localhost:${server.port}');
+  print('   Auth endpoints:');
   print('     POST /api/auth/login');
-  print('     GET  /api/subscribers');
-  print('     GET  /api/families');
-  print('     GET  /api/aid');
-  print('     GET  /api/logs');
-  print('     GET  /api/reports/summary');
-  print('     GET  /api/donations');
-  print('     GET  /api/donations/summary');
-  print('     POST /api/donations');
+  print('     POST /api/auth/register');
+  print('     POST /api/auth/google');
+  print('     POST /api/auth/forgot-password');
+  print('     POST /api/auth/reset-password');
+  print('     POST /api/auth/logout');
 }
 
 // ── Auth Middleware (Token guard) ────────────────────────────────────────────

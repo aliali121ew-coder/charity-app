@@ -51,6 +51,9 @@ dependencies:
   # WebView (hosted payment page / 3DS / OTP)
   webview_flutter: ^4.10.0
 
+  # Google Sign-In
+  google_sign_in: ^6.2.2
+
   # Loading / Shimmer
   shimmer: ^3.0.0
 
