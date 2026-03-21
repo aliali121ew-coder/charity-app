@@ -80,6 +80,7 @@ class _EmailAuthPageState extends ConsumerState<EmailAuthPage>
   Future<void> _handleRegister() async {
     if (!_regFormKey.currentState!.validate()) return;
     final error = await ref.read(authProvider.notifier).register(
+          name: _regUsernameCtrl.text.trim(),
           email: _regEmailCtrl.text.trim(),
           phone: _regPhoneCtrl.text.trim(),
           username: _regUsernameCtrl.text.trim(),
