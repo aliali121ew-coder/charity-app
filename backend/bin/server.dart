@@ -48,6 +48,7 @@ void main() async {
 
   // ── Auth service (shared across routes + middleware) ──────────────────────
   _authService = AuthService(db: db);
+  await _authService.seedDb();
 
   // ── Payment provider configs (env) ────────────────────────────────────────
   final myFatoorahApiKey = Platform.environment['MYFATOORAH_API_KEY'] ?? '';

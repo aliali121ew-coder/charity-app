@@ -106,11 +106,7 @@ END
 \$\$;
 ''');
 
-    // Seed accounts should always be active + verified
-    await conn.execute('''
-UPDATE users SET is_active=true, email_verified=true
-WHERE id IN ('seed_admin_001','seed_emp_002');
-''');
+    // Placeholder: seed data is inserted by AuthService.seedDb()
 
     await conn.execute('''
 CREATE INDEX IF NOT EXISTS users_email_idx ON users(email);

@@ -676,6 +676,62 @@ ORDER BY created_at DESC LIMIT 1
   // Helpers
   // ─────────────────────────────────────────────────────────────────────────
 
+  /// Seeds default admin + employee into Postgres if they don't exist yet.
+  Future<void> seedDb() async {
+    if (_db == null) return;
+    try {
+      final seeds = [
+        (
+          id: 'seed_admin_001',
+          name: 'مدير النظام',
+          email: 'admin@charity.org',
+          username: 'admin',
+          password: 'admin123',
+          role: 'admin',
+        ),
+        (
+          id: 'seed_emp_002',
+          name: 'أحمد محمد',
+          email: 'employee@charity.org',
+          username: 'ahmed',
+          password: 'emp123',
+          role: 'employee',
+        ),
+      ];
+      for (final s in seeds) {
+        final exists = await _db!.conn.execute(
+          Sql.named('SELECT id FROM users WHERE id=@id LIMIT 1'),
+          parameters: {'id': s.id},
+        );
+        if (exists.isEmpty) {
+          await _db!.conn.execute(
+            Sql.named('''
+INSERT INTO users (id,name,email,username,password_hash,role,is_active,email_verified,created_at)
+VALUES (@id,@name,@email,@uname,@hash,@role,true,true,NOW())
+'''),
+            parameters: {
+              'id': s.id,
+              'name': s.name,
+              'email': s.email,
+              'uname': s.username,
+              'hash': hashPassword(s.password),
+              'role': s.role,
+            },
+          );
+          print('✅ Seeded user: ${s.email}');
+        } else {
+          // Ensure existing seed users are always active + verified
+          await _db!.conn.execute(
+            Sql.named('UPDATE users SET is_active=true, email_verified=true WHERE id=@id'),
+            parameters: {'id': s.id},
+          );
+        }
+      }
+    } catch (e) {
+      print('Seed error: $e');
+    }
+  }
+
   String _generateOtp() =>
       (100000 + Random.secure().nextInt(900000)).toString();
 
