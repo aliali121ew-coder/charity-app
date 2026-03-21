@@ -70,12 +70,16 @@ class AuthState {
   /// Set when user registered but hasn't verified email yet.
   final String? pendingVerificationEmail;
 
+  /// Debug only: OTP code returned by server in non-production mode.
+  final String? debugVerificationCode;
+
   const AuthState({
     this.user,
     this.isLoading = false,
     this.error,
     this.isGuest = false,
     this.pendingVerificationEmail,
+    this.debugVerificationCode,
   });
 
   bool get isAuthenticated => user != null;
@@ -88,6 +92,7 @@ class AuthState {
     String? error,
     bool? isGuest,
     String? pendingVerificationEmail,
+    String? debugVerificationCode,
     bool clearUser = false,
     bool clearError = false,
     bool clearPending = false,
@@ -100,6 +105,9 @@ class AuthState {
       pendingVerificationEmail: clearPending
           ? null
           : pendingVerificationEmail ?? this.pendingVerificationEmail,
+      debugVerificationCode: clearPending
+          ? null
+          : debugVerificationCode ?? this.debugVerificationCode,
     );
   }
 }
@@ -270,6 +278,7 @@ class AuthNotifier extends Notifier<AuthState> {
         isLoading: false,
         clearError: true,
         pendingVerificationEmail: pendingEmail,
+        debugVerificationCode: decoded['debug_code']?.toString(),
       );
       _routerNotifier.notify();
       return null;

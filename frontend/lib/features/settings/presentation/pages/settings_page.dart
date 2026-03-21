@@ -834,19 +834,18 @@ Future<void> _showAddUserDialog(BuildContext context, WidgetRef ref) async {
               const Color(0xFF10B981)),
         ];
 
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+        return Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(ctx).size.height * 0.92,
           ),
-          child: Container(
-            decoration: BoxDecoration(
-              color: sheetBg,
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
+          decoration: BoxDecoration(
+            color: sheetBg,
+            borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
                 // Handle
                 Container(
                   margin: const EdgeInsets.only(top: 12),
@@ -915,7 +914,12 @@ Future<void> _showAddUserDialog(BuildContext context, WidgetRef ref) async {
                 const Divider(height: 24),
 
                 // Form fields
-                Padding(
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.only(
+                      bottom: MediaQuery.of(ctx).viewInsets.bottom,
+                    ),
+                    child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1116,9 +1120,10 @@ Future<void> _showAddUserDialog(BuildContext context, WidgetRef ref) async {
                     ],
                   ),
                 ),
+                  ),
+                ),
               ],
             ),
-          ),
         );
       },
     ),

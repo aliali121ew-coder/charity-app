@@ -163,7 +163,42 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
                 ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 36),
+              const SizedBox(height: 20),
+              // Debug: show OTP code if server returned it (dev mode only)
+              Builder(builder: (ctx) {
+                final debugCode = ref.watch(
+                    authProvider.select((s) => s.debugVerificationCode));
+                if (debugCode == null) return const SizedBox.shrink();
+                return Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 12),
+                  margin: const EdgeInsets.only(bottom: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                        color: Colors.amber.withValues(alpha: 0.5)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.bug_report_rounded,
+                          color: Colors.amber, size: 18),
+                      const SizedBox(width: 8),
+                      Text('رمز التجربة: ',
+                          style: GoogleFonts.cairo(
+                              fontSize: 13, color: Colors.amber)),
+                      Text(debugCode,
+                          style: GoogleFonts.cairo(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.amber,
+                              letterSpacing: 4)),
+                    ],
+                  ),
+                );
+              }),
+              const SizedBox(height: 16),
               // OTP inputs
               Directionality(
                 textDirection: TextDirection.ltr,
