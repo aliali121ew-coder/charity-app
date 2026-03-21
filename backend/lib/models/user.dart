@@ -10,6 +10,7 @@ class User {
   final String? googleId;
   final UserRole role;
   final bool isActive;
+  final bool emailVerified;
   final DateTime createdAt;
 
   const User({
@@ -21,11 +22,11 @@ class User {
     this.passwordHash,
     this.googleId,
     this.role = UserRole.beneficiary,
-    this.isActive = true,
+    this.isActive = false,
+    this.emailVerified = false,
     required this.createdAt,
   });
 
-  /// Safe for API responses — no secrets
   Map<String, dynamic> toPublicJson() => {
         'id': id,
         'name': name,
@@ -34,6 +35,7 @@ class User {
         'username': username,
         'role': role.name,
         'isActive': isActive,
+        'emailVerified': emailVerified,
         'createdAt': createdAt.toIso8601String(),
       };
 
@@ -46,11 +48,11 @@ class User {
         passwordHash: json['passwordHash'] as String?,
         googleId: json['googleId'] as String?,
         role: UserRole.values.byName(json['role'] as String? ?? 'beneficiary'),
-        isActive: json['isActive'] as bool? ?? true,
+        isActive: json['isActive'] as bool? ?? false,
+        emailVerified: json['emailVerified'] as bool? ?? false,
         createdAt: DateTime.parse(json['createdAt'] as String),
       );
 
-  /// From PostgreSQL row (snake_case column names)
   factory User.fromRow(Map<String, dynamic> row) => User(
         id: row['id'] as String,
         name: row['name'] as String,
@@ -60,13 +62,20 @@ class User {
         passwordHash: row['password_hash'] as String?,
         googleId: row['google_id'] as String?,
         role: UserRole.values.byName(row['role'] as String? ?? 'beneficiary'),
-        isActive: row['is_active'] as bool? ?? true,
+        isActive: row['is_active'] as bool? ?? false,
+        emailVerified: row['email_verified'] as bool? ?? false,
         createdAt: row['created_at'] is DateTime
             ? (row['created_at'] as DateTime)
             : DateTime.parse(row['created_at'].toString()),
       );
 
-  User copyWith({String? passwordHash, String? googleId}) => User(
+  User copyWith({
+    String? passwordHash,
+    String? googleId,
+    bool? isActive,
+    bool? emailVerified,
+  }) =>
+      User(
         id: id,
         name: name,
         email: email,
@@ -75,7 +84,8 @@ class User {
         passwordHash: passwordHash ?? this.passwordHash,
         googleId: googleId ?? this.googleId,
         role: role,
-        isActive: isActive,
+        isActive: isActive ?? this.isActive,
+        emailVerified: emailVerified ?? this.emailVerified,
         createdAt: createdAt,
       );
 }

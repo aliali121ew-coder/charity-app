@@ -5,6 +5,7 @@ import 'package:charity_app/shared/providers/app_providers.dart';
 import 'package:charity_app/features/auth/presentation/pages/login_page.dart';
 import 'package:charity_app/features/auth/presentation/pages/email_auth_page.dart';
 import 'package:charity_app/features/auth/presentation/pages/forgot_password_page.dart';
+import 'package:charity_app/features/auth/presentation/pages/verify_email_page.dart';
 import 'package:charity_app/features/dashboard/presentation/pages/dashboard_page.dart';
 import 'package:charity_app/features/subscribers/presentation/pages/subscribers_page.dart';
 import 'package:charity_app/features/families/presentation/pages/families_page.dart';
@@ -31,6 +32,7 @@ class AppRoutes {
   static const String login = '/login';
   static const String authEmail = '/auth/email';
   static const String authForgot = '/auth/forgot-password';
+  static const String authVerifyEmail = '/auth/verify-email';
   static const String dashboard = '/dashboard';
   static const String subscribers = '/subscribers';
   static const String families = '/families';
@@ -62,10 +64,17 @@ final routerProvider = Provider<GoRouter>((ref) {
       final onSplash = loc == AppRoutes.splash;
       final onAuthRoute = loc == AppRoutes.login ||
           loc == AppRoutes.authEmail ||
-          loc == AppRoutes.authForgot;
+          loc == AppRoutes.authForgot ||
+          loc == AppRoutes.authVerifyEmail;
 
       // Let splash play freely
       if (onSplash) return null;
+
+      // Pending email verification → stay on verify screen
+      if (authState.isPendingVerification) {
+        if (loc != AppRoutes.authVerifyEmail) return AppRoutes.authVerifyEmail;
+        return null;
+      }
 
       // Not authenticated and not guest → go to login
       if (!authState.hasAccess && !onAuthRoute) return AppRoutes.login;
@@ -115,6 +124,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.authForgot,
         name: 'authForgot',
         builder: (context, state) => const ForgotPasswordPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.authVerifyEmail,
+        name: 'authVerifyEmail',
+        builder: (context, state) {
+          final email = ref.read(authProvider).pendingVerificationEmail ?? '';
+          return VerifyEmailPage(email: email);
+        },
       ),
 
       // ── Main Shell ────────────────────────────────────────

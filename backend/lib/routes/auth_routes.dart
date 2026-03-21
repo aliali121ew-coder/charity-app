@@ -13,6 +13,8 @@ class AuthRoutes {
       ..post('/logout', _logout)
       ..post('/register', _register)
       ..post('/google', _googleLogin)
+      ..post('/verify-email', _verifyEmail)
+      ..post('/resend-verification', _resendVerification)
       ..post('/forgot-password', _forgotPassword)
       ..post('/reset-password', _resetPassword);
   }
@@ -20,15 +22,12 @@ class AuthRoutes {
   // ── POST /api/auth/login ─────────────────────────────────────────────────
   Future<Response> _login(Request req) async {
     try {
-      final body =
-          jsonDecode(await req.readAsString()) as Map<String, dynamic>;
+      final body = jsonDecode(await req.readAsString()) as Map<String, dynamic>;
       final emailOrUsername = (body['email'] as String?)?.trim();
       final password = body['password'] as String?;
 
-      if (emailOrUsername == null ||
-          emailOrUsername.isEmpty ||
-          password == null ||
-          password.isEmpty) {
+      if (emailOrUsername == null || emailOrUsername.isEmpty ||
+          password == null || password.isEmpty) {
         return _err('البريد الإلكتروني وكلمة المرور مطلوبان', 400);
       }
 
@@ -36,6 +35,26 @@ class AuthRoutes {
       if (result == null) {
         return _err('بيانات الدخول غير صحيحة', 401);
       }
+
+      // Check for specific error states
+      if (result.containsKey('error')) {
+        if (result['error'] == 'email_not_verified') {
+          return Response(
+            403,
+            body: jsonEncode({
+              'error': 'email_not_verified',
+              'message': 'يرجى تأكيد بريدك الإلكتروني أولاً',
+              'email': result['email'],
+            }),
+            headers: {'Content-Type': 'application/json'},
+          );
+        }
+        if (result['error'] == 'account_disabled') {
+          return _err('الحساب معطّل، تواصل مع الدعم', 403);
+        }
+        return _err('بيانات الدخول غير صحيحة', 401);
+      }
+
       return _ok(result);
     } catch (_) {
       return _err('طلب غير صحيح', 400);
@@ -52,8 +71,7 @@ class AuthRoutes {
   // ── POST /api/auth/register ──────────────────────────────────────────────
   Future<Response> _register(Request req) async {
     try {
-      final body =
-          jsonDecode(await req.readAsString()) as Map<String, dynamic>;
+      final body = jsonDecode(await req.readAsString()) as Map<String, dynamic>;
 
       final name = (body['name'] as String?)?.trim() ?? '';
       final email = (body['email'] as String?)?.trim() ?? '';
@@ -61,24 +79,18 @@ class AuthRoutes {
       final username = (body['username'] as String?)?.trim() ?? '';
       final password = body['password'] as String? ?? '';
 
-      // Validate required fields
       if (name.isEmpty || email.isEmpty || phone.isEmpty ||
           username.isEmpty || password.isEmpty) {
         return _err('جميع الحقول مطلوبة', 400);
       }
-      if (!email.contains('@')) {
-        return _err('البريد الإلكتروني غير صحيح', 400);
-      }
+      if (!email.contains('@')) return _err('البريد الإلكتروني غير صحيح', 400);
       if (password.length < 8) {
         return _err('كلمة المرور يجب أن تكون 8 أحرف على الأقل', 400);
       }
 
       final result = await _auth.register(
-        name: name,
-        email: email,
-        phone: phone,
-        username: username,
-        password: password,
+        name: name, email: email, phone: phone,
+        username: username, password: password,
       );
 
       if (result.containsKey('error')) {
@@ -87,6 +99,8 @@ class AuthRoutes {
           result['error'] == 'server_error' ? 500 : 409,
         );
       }
+
+      // Returns { status: 'pending_verification', email: '...', debug_code?: '...' }
       return _ok(result, statusCode: 201);
     } catch (e) {
       return _err('طلب غير صحيح', 400);
@@ -96,17 +110,51 @@ class AuthRoutes {
   // ── POST /api/auth/google ────────────────────────────────────────────────
   Future<Response> _googleLogin(Request req) async {
     try {
-      final body =
-          jsonDecode(await req.readAsString()) as Map<String, dynamic>;
+      final body = jsonDecode(await req.readAsString()) as Map<String, dynamic>;
       final idToken = (body['idToken'] as String?)?.trim();
 
-      if (idToken == null || idToken.isEmpty) {
-        return _err('idToken مطلوب', 400);
-      }
+      if (idToken == null || idToken.isEmpty) return _err('idToken مطلوب', 400);
 
       final result = await _auth.loginWithGoogle(idToken);
-      if (result == null) {
-        return _err('فشل التحقق من حساب Google', 401);
+      if (result == null) return _err('فشل التحقق من حساب Google', 401);
+      return _ok(result);
+    } catch (_) {
+      return _err('طلب غير صحيح', 400);
+    }
+  }
+
+  // ── POST /api/auth/verify-email ──────────────────────────────────────────
+  Future<Response> _verifyEmail(Request req) async {
+    try {
+      final body = jsonDecode(await req.readAsString()) as Map<String, dynamic>;
+      final email = (body['email'] as String?)?.trim();
+      final code = (body['code'] as String?)?.trim();
+
+      if (email == null || email.isEmpty || code == null || code.isEmpty) {
+        return _err('البريد والرمز مطلوبان', 400);
+      }
+
+      final result = await _auth.verifyEmail(email: email, code: code);
+      if (result.containsKey('error')) {
+        return _err(result['message'] as String? ?? 'حدث خطأ', 400);
+      }
+      return _ok(result);
+    } catch (_) {
+      return _err('طلب غير صحيح', 400);
+    }
+  }
+
+  // ── POST /api/auth/resend-verification ───────────────────────────────────
+  Future<Response> _resendVerification(Request req) async {
+    try {
+      final body = jsonDecode(await req.readAsString()) as Map<String, dynamic>;
+      final email = (body['email'] as String?)?.trim();
+
+      if (email == null || email.isEmpty) return _err('البريد الإلكتروني مطلوب', 400);
+
+      final result = await _auth.resendVerificationCode(email);
+      if (result.containsKey('error') && result['error'] == 'already_verified') {
+        return _err(result['message'] as String, 409);
       }
       return _ok(result);
     } catch (_) {
@@ -117,8 +165,7 @@ class AuthRoutes {
   // ── POST /api/auth/forgot-password ───────────────────────────────────────
   Future<Response> _forgotPassword(Request req) async {
     try {
-      final body =
-          jsonDecode(await req.readAsString()) as Map<String, dynamic>;
+      final body = jsonDecode(await req.readAsString()) as Map<String, dynamic>;
       final emailOrPhone = (body['emailOrPhone'] as String?)?.trim();
 
       if (emailOrPhone == null || emailOrPhone.isEmpty) {
@@ -135,8 +182,7 @@ class AuthRoutes {
   // ── POST /api/auth/reset-password ────────────────────────────────────────
   Future<Response> _resetPassword(Request req) async {
     try {
-      final body =
-          jsonDecode(await req.readAsString()) as Map<String, dynamic>;
+      final body = jsonDecode(await req.readAsString()) as Map<String, dynamic>;
       final emailOrPhone = (body['emailOrPhone'] as String?)?.trim();
       final otp = (body['otp'] as String?)?.trim();
       final newPassword = body['newPassword'] as String?;
@@ -151,9 +197,7 @@ class AuthRoutes {
       }
 
       final result = await _auth.resetPassword(
-        emailOrPhone: emailOrPhone,
-        otp: otp,
-        newPassword: newPassword,
+        emailOrPhone: emailOrPhone, otp: otp, newPassword: newPassword,
       );
 
       if (result.containsKey('error')) {

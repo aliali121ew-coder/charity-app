@@ -32,7 +32,8 @@ class LocaleNotifier extends Notifier<Locale> {
       );
 }
 
-final localeProvider = NotifierProvider<LocaleNotifier, Locale>(LocaleNotifier.new);
+final localeProvider =
+    NotifierProvider<LocaleNotifier, Locale>(LocaleNotifier.new);
 
 // ── Theme Mode ────────────────────────────────────────────────────────────────
 class ThemeModeNotifier extends Notifier<ThemeMode> {
@@ -66,34 +67,43 @@ class AuthState {
   final String? error;
   final bool isGuest;
 
+  /// Set when user registered but hasn't verified email yet.
+  final String? pendingVerificationEmail;
+
   const AuthState({
     this.user,
     this.isLoading = false,
     this.error,
     this.isGuest = false,
+    this.pendingVerificationEmail,
   });
 
   bool get isAuthenticated => user != null;
   bool get hasAccess => isAuthenticated || isGuest;
+  bool get isPendingVerification => pendingVerificationEmail != null;
 
   AuthState copyWith({
     UserModel? user,
     bool? isLoading,
     String? error,
     bool? isGuest,
+    String? pendingVerificationEmail,
     bool clearUser = false,
     bool clearError = false,
+    bool clearPending = false,
   }) {
     return AuthState(
       user: clearUser ? null : user ?? this.user,
       isLoading: isLoading ?? this.isLoading,
       error: clearError ? null : error ?? this.error,
       isGuest: isGuest ?? this.isGuest,
+      pendingVerificationEmail: clearPending
+          ? null
+          : pendingVerificationEmail ?? this.pendingVerificationEmail,
     );
   }
 }
 
-// A ChangeNotifier used as go_router's refreshListenable that mirrors auth state.
 class AuthRouterNotifier extends ChangeNotifier {
   void notify() => notifyListeners();
 }
@@ -124,7 +134,6 @@ class AuthNotifier extends Notifier<AuthState> {
               : UserModel.beneficiary(id: userId, name: savedName, email: savedEmail);
       return AuthState(user: user);
     }
-    // Restore guest session
     if (_prefs.getBool(AppConstants.prefIsGuest) == true) {
       return const AuthState(isGuest: true);
     }
@@ -133,67 +142,57 @@ class AuthNotifier extends Notifier<AuthState> {
 
   bool get isLoggedIn => state.isAuthenticated;
 
+  // ── Login ──────────────────────────────────────────────────────────────────
   Future<bool> login(String email, String password) async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      final url = _apiBase.resolve('/api/auth/login');
       final resp = await http.post(
-        url,
+        _apiBase.resolve('/api/auth/login'),
         headers: {'Content-Type': 'application/json'},
-        body: '{"email":"$email","password":"$password"}',
+        body: jsonEncode({'email': email, 'password': password}),
       );
+
+      final decoded = resp.body.isNotEmpty
+          ? jsonDecode(resp.body) as Map<String, dynamic>
+          : <String, dynamic>{};
+
+      // Email not verified → go to verification screen
+      if (resp.statusCode == 403 &&
+          decoded['error'] == 'email_not_verified') {
+        final pendingEmail =
+            decoded['email']?.toString() ?? email;
+        state = state.copyWith(
+          isLoading: false,
+          clearError: true,
+          pendingVerificationEmail: pendingEmail,
+        );
+        _routerNotifier.notify();
+        return false;
+      }
 
       if (resp.statusCode < 200 || resp.statusCode >= 300) {
         state = state.copyWith(
           isLoading: false,
-          error: 'invalid_credentials',
+          error: decoded['error']?.toString() ?? 'invalid_credentials',
           clearUser: true,
         );
         return false;
       }
 
-      final json = resp.body;
-      // Minimal decode without extra dependency
-      final Map<String, dynamic> decoded =
-          (json.isNotEmpty ? (jsonDecode(json) as Map<String, dynamic>) : {});
       final token = decoded['token']?.toString();
       final user = decoded['user'] as Map<String, dynamic>?;
       if (token == null || user == null) {
         state = state.copyWith(
-          isLoading: false,
-          error: 'server_error',
-          clearUser: true,
-        );
+            isLoading: false, error: 'server_error', clearUser: true);
         return false;
       }
 
-      final role = (user['role'] ?? 'user').toString();
-      final userId = (user['id'] ?? '').toString();
-      final name = (user['name'] ?? '').toString();
-      final emailRes = (user['email'] ?? email).toString();
-
-      final userModel = role == 'admin'
-          ? UserModel.admin(id: userId, name: name, email: emailRes)
-          : role == 'employee'
-              ? UserModel.employee(id: userId, name: name, email: emailRes)
-              : UserModel.beneficiary(
-                  id: userId, name: name, email: emailRes);
-
-      await _prefs.setString(AppConstants.prefAuthToken, token);
-      await _prefs.setString(AppConstants.prefUserRole, role);
-      await _prefs.setString(AppConstants.prefUserId, userId);
-      await _prefs.setString(AppConstants.prefUserName, name);
-      await _prefs.setString(AppConstants.prefUserEmail, emailRes);
-      await _prefs.remove(AppConstants.prefIsGuest);
-      state = state.copyWith(user: userModel, isLoading: false, isGuest: false);
+      await _saveSession(token, user);
       _routerNotifier.notify();
       return true;
     } catch (_) {
       state = state.copyWith(
-        isLoading: false,
-        error: 'server_error',
-        clearUser: true,
-      );
+          isLoading: false, error: 'server_error', clearUser: true);
       return false;
     }
   }
@@ -202,9 +201,8 @@ class AuthNotifier extends Notifier<AuthState> {
   Future<bool> loginWithGoogle(String googleIdToken) async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      final url = _apiBase.resolve('/api/auth/google');
       final resp = await http.post(
-        url,
+        _apiBase.resolve('/api/auth/google'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'idToken': googleIdToken}),
       );
@@ -224,24 +222,7 @@ class AuthNotifier extends Notifier<AuthState> {
         return false;
       }
 
-      final role = (user['role'] ?? 'beneficiary').toString();
-      final userId = (user['id'] ?? '').toString();
-      final name = (user['name'] ?? '').toString();
-      final emailRes = (user['email'] ?? '').toString();
-
-      final userModel = role == 'admin'
-          ? UserModel.admin(id: userId, name: name, email: emailRes)
-          : role == 'employee'
-              ? UserModel.employee(id: userId, name: name, email: emailRes)
-              : UserModel.beneficiary(id: userId, name: name, email: emailRes);
-
-      await _prefs.setString(AppConstants.prefAuthToken, token);
-      await _prefs.setString(AppConstants.prefUserRole, role);
-      await _prefs.setString(AppConstants.prefUserId, userId);
-      await _prefs.setString(AppConstants.prefUserName, name);
-      await _prefs.setString(AppConstants.prefUserEmail, emailRes);
-      await _prefs.remove(AppConstants.prefIsGuest);
-      state = state.copyWith(user: userModel, isLoading: false, isGuest: false);
+      await _saveSession(token, user);
       _routerNotifier.notify();
       return true;
     } catch (_) {
@@ -251,15 +232,10 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
-  // ── Guest access ──────────────────────────────────────────────────────────
-  Future<void> loginAsGuest() async {
-    await _prefs.setBool(AppConstants.prefIsGuest, true);
-    state = const AuthState(isGuest: true);
-    _routerNotifier.notify();
-  }
-
   // ── Register ──────────────────────────────────────────────────────────────
+  /// Returns null on success (pending verification), error string on failure.
   Future<String?> register({
+    required String name,
     required String email,
     required String phone,
     required String username,
@@ -267,12 +243,11 @@ class AuthNotifier extends Notifier<AuthState> {
   }) async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      final url = _apiBase.resolve('/api/auth/register');
       final resp = await http.post(
-        url,
+        _apiBase.resolve('/api/auth/register'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'name': username, // display name = username by default
+          'name': name,
           'email': email,
           'phone': phone,
           'username': username,
@@ -280,38 +255,23 @@ class AuthNotifier extends Notifier<AuthState> {
         }),
       );
       final decoded = resp.body.isNotEmpty
-          ? (jsonDecode(resp.body) as Map<String, dynamic>)
+          ? jsonDecode(resp.body) as Map<String, dynamic>
           : <String, dynamic>{};
 
       if (resp.statusCode < 200 || resp.statusCode >= 300) {
-        final msg = decoded['message']?.toString() ?? 'register_error';
+        final msg = decoded['error']?.toString() ?? 'register_error';
         state = state.copyWith(isLoading: false, error: msg);
         return msg;
       }
-      // Auto-login after register
-      state = state.copyWith(isLoading: false);
-      await login(email, password);
-      return null; // null = success
-    } catch (_) {
-      state = state.copyWith(isLoading: false, error: 'server_error');
-      return 'server_error';
-    }
-  }
 
-  // ── Forgot password: request OTP ─────────────────────────────────────────
-  Future<String?> sendPasswordResetOtp(String emailOrPhone) async {
-    state = state.copyWith(isLoading: true, clearError: true);
-    try {
-      final url = _apiBase.resolve('/api/auth/forgot-password');
-      final resp = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'emailOrPhone': emailOrPhone}),
+      // Registration success → pending email verification
+      final pendingEmail = decoded['email']?.toString() ?? email;
+      state = state.copyWith(
+        isLoading: false,
+        clearError: true,
+        pendingVerificationEmail: pendingEmail,
       );
-      state = state.copyWith(isLoading: false);
-      if (resp.statusCode < 200 || resp.statusCode >= 300) {
-        return 'send_otp_error';
-      }
+      _routerNotifier.notify();
       return null;
     } catch (_) {
       state = state.copyWith(isLoading: false, error: 'server_error');
@@ -319,7 +279,88 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
-  // ── Forgot password: reset with OTP ─────────────────────────────────────
+  // ── Verify Email ──────────────────────────────────────────────────────────
+  /// Returns null on success, error string on failure.
+  Future<String?> verifyEmail({
+    required String email,
+    required String code,
+  }) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      final resp = await http.post(
+        _apiBase.resolve('/api/auth/verify-email'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': email, 'code': code}),
+      );
+      final decoded = resp.body.isNotEmpty
+          ? jsonDecode(resp.body) as Map<String, dynamic>
+          : <String, dynamic>{};
+
+      if (resp.statusCode < 200 || resp.statusCode >= 300) {
+        final msg = decoded['error']?.toString() ?? 'invalid_code';
+        state = state.copyWith(isLoading: false, error: msg);
+        return msg;
+      }
+
+      // Success: user is now verified — log them in
+      final token = decoded['token']?.toString();
+      final user = decoded['user'] as Map<String, dynamic>?;
+      if (token != null && user != null) {
+        await _saveSession(token, user);
+        state = state.copyWith(isLoading: false, clearPending: true);
+      } else {
+        state = state.copyWith(isLoading: false, clearPending: true);
+      }
+      _routerNotifier.notify();
+      return null;
+    } catch (_) {
+      state = state.copyWith(isLoading: false, error: 'server_error');
+      return 'server_error';
+    }
+  }
+
+  // ── Resend Verification ───────────────────────────────────────────────────
+  Future<String?> resendVerification(String email) async {
+    try {
+      final resp = await http.post(
+        _apiBase.resolve('/api/auth/resend-verification'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': email}),
+      );
+      if (resp.statusCode < 200 || resp.statusCode >= 300) {
+        return 'resend_error';
+      }
+      return null;
+    } catch (_) {
+      return 'server_error';
+    }
+  }
+
+  // ── Guest ─────────────────────────────────────────────────────────────────
+  Future<void> loginAsGuest() async {
+    await _prefs.setBool(AppConstants.prefIsGuest, true);
+    state = const AuthState(isGuest: true);
+    _routerNotifier.notify();
+  }
+
+  // ── Forgot password ───────────────────────────────────────────────────────
+  Future<String?> sendPasswordResetOtp(String emailOrPhone) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      final resp = await http.post(
+        _apiBase.resolve('/api/auth/forgot-password'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'emailOrPhone': emailOrPhone}),
+      );
+      state = state.copyWith(isLoading: false);
+      if (resp.statusCode < 200 || resp.statusCode >= 300) return 'send_otp_error';
+      return null;
+    } catch (_) {
+      state = state.copyWith(isLoading: false, error: 'server_error');
+      return 'server_error';
+    }
+  }
+
   Future<String?> resetPassword({
     required String emailOrPhone,
     required String otp,
@@ -327,9 +368,8 @@ class AuthNotifier extends Notifier<AuthState> {
   }) async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      final url = _apiBase.resolve('/api/auth/reset-password');
       final resp = await http.post(
-        url,
+        _apiBase.resolve('/api/auth/reset-password'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'emailOrPhone': emailOrPhone,
@@ -338,9 +378,7 @@ class AuthNotifier extends Notifier<AuthState> {
         }),
       );
       state = state.copyWith(isLoading: false);
-      if (resp.statusCode < 200 || resp.statusCode >= 300) {
-        return 'reset_error';
-      }
+      if (resp.statusCode < 200 || resp.statusCode >= 300) return 'reset_error';
       return null;
     } catch (_) {
       state = state.copyWith(isLoading: false, error: 'server_error');
@@ -348,6 +386,7 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
+  // ── Logout ────────────────────────────────────────────────────────────────
   Future<void> logout() async {
     await _prefs.remove(AppConstants.prefAuthToken);
     await _prefs.remove(AppConstants.prefUserRole);
@@ -357,6 +396,32 @@ class AuthNotifier extends Notifier<AuthState> {
     await _prefs.remove(AppConstants.prefIsGuest);
     state = const AuthState();
     _routerNotifier.notify();
+  }
+
+  // ── Private helpers ───────────────────────────────────────────────────────
+  Future<void> _saveSession(
+      String token, Map<String, dynamic> user) async {
+    final role = (user['role'] ?? 'beneficiary').toString();
+    final userId = (user['id'] ?? '').toString();
+    final name = (user['name'] ?? '').toString();
+    final email = (user['email'] ?? '').toString();
+
+    final userModel = role == 'admin'
+        ? UserModel.admin(id: userId, name: name, email: email)
+        : role == 'employee'
+            ? UserModel.employee(id: userId, name: name, email: email)
+            : UserModel.beneficiary(id: userId, name: name, email: email);
+
+    await _prefs.setString(AppConstants.prefAuthToken, token);
+    await _prefs.setString(AppConstants.prefUserRole, role);
+    await _prefs.setString(AppConstants.prefUserId, userId);
+    await _prefs.setString(AppConstants.prefUserName, name);
+    await _prefs.setString(AppConstants.prefUserEmail, email);
+    await _prefs.remove(AppConstants.prefIsGuest);
+
+    state = state.copyWith(
+        user: userModel, isLoading: false, isGuest: false,
+        clearPending: true);
   }
 }
 

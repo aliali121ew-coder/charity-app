@@ -13,11 +13,13 @@ import 'package:charity_backend/services/db.dart';
 
 class _OtpRecord {
   final String code;
+  final String purpose;
   final DateTime expiresAt;
-  _OtpRecord({required this.code, required this.expiresAt});
+  _OtpRecord({required this.code, required this.purpose, required this.expiresAt});
 }
 
-/// Full authentication service — email/password, Google OAuth, OTP reset.
+/// Full authentication service — email/password, Google OAuth, OTP reset,
+/// email verification.
 ///
 /// When [db] is null, falls back to in-memory store (development only).
 class AuthService {
@@ -26,7 +28,7 @@ class AuthService {
   final bool _isProduction;
   static const _uuid = Uuid();
 
-  // ── In-memory fallback (development) ─────────────────────────────────────
+  // ── In-memory fallback (development) ──────────────────────────────────────
   static final List<User> _memUsers = [];
   static final Map<String, _OtpRecord> _memOtpStore = {};
   static bool _seeded = false;
@@ -46,6 +48,8 @@ class AuthService {
           username: 'admin',
           passwordHash: hashPassword('admin123'),
           role: UserRole.admin,
+          isActive: true,
+          emailVerified: true,
           createdAt: DateTime(2024, 1, 1),
         ),
         User(
@@ -55,6 +59,8 @@ class AuthService {
           username: 'ahmed',
           passwordHash: hashPassword('emp123'),
           role: UserRole.employee,
+          isActive: true,
+          emailVerified: true,
           createdAt: DateTime(2024, 1, 15),
         ),
       ]);
@@ -90,7 +96,6 @@ class AuthService {
         expiresIn: const Duration(days: 7));
   }
 
-  /// Returns userId when token is valid, null otherwise.
   String? validateToken(String token) {
     try {
       final jwt = JWT.verify(token, SecretKey(_jwtSecret));
@@ -105,7 +110,7 @@ class AuthService {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Login
+  // Login — checks email_verified + is_active
   // ─────────────────────────────────────────────────────────────────────────
 
   Future<Map<String, dynamic>?> login(
@@ -118,16 +123,26 @@ class AuthService {
   Future<Map<String, dynamic>?> _loginDb(
       String emailOrUsername, String password) async {
     try {
-      // ignore: unnecessary_non_null_assertion
       final rs = await _db!.conn.execute(
         Sql.named(
-            'SELECT * FROM users WHERE (LOWER(email)=@q OR LOWER(username)=@q) AND is_active=true LIMIT 1'),
+            'SELECT * FROM users WHERE (LOWER(email)=@q OR LOWER(username)=@q) LIMIT 1'),
         parameters: {'q': emailOrUsername.toLowerCase()},
       );
       if (rs.isEmpty) return null;
-      final user = User.fromRow(rs.first.toColumnMap());
+      final row = rs.first.toColumnMap();
+      final user = User.fromRow(row);
+
       if (user.passwordHash == null) return null;
       if (!verifyPassword(password, user.passwordHash!)) return null;
+
+      // Block unverified accounts
+      if (user.emailVerified != true) {
+        return {'error': 'email_not_verified', 'email': user.email};
+      }
+      if (user.isActive != true) {
+        return {'error': 'account_disabled'};
+      }
+
       return _ok(user);
     } catch (e) {
       print('Login DB error: $e');
@@ -146,11 +161,17 @@ class AuthService {
         );
     if (user == null || user.passwordHash == null) return null;
     if (!verifyPassword(password, user.passwordHash!)) return null;
+    if (user.emailVerified != true) {
+      return {'error': 'email_not_verified', 'email': user.email};
+    }
+    if (user.isActive != true) {
+      return {'error': 'account_disabled'};
+    }
     return _ok(user);
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Register
+  // Register — creates user as pending_verification
   // ─────────────────────────────────────────────────────────────────────────
 
   Future<Map<String, dynamic>> register({
@@ -162,17 +183,11 @@ class AuthService {
   }) async {
     return _db != null
         ? await _registerDb(
-            name: name,
-            email: email,
-            phone: phone,
-            username: username,
-            password: password)
+            name: name, email: email, phone: phone,
+            username: username, password: password)
         : _registerMemory(
-            name: name,
-            email: email,
-            phone: phone,
-            username: username,
-            password: password);
+            name: name, email: email, phone: phone,
+            username: username, password: password);
   }
 
   Future<Map<String, dynamic>> _registerDb({
@@ -183,22 +198,16 @@ class AuthService {
     required String password,
   }) async {
     try {
-      // ignore: unnecessary_non_null_assertion
       final emailChk = await _db!.conn.execute(
         Sql.named('SELECT id FROM users WHERE LOWER(email)=@e LIMIT 1'),
         parameters: {'e': email.toLowerCase()},
       );
       if (emailChk.isNotEmpty) {
-        return {
-          'error': 'email_exists',
-          'message': 'البريد الإلكتروني مستخدم بالفعل'
-        };
+        return {'error': 'email_exists', 'message': 'البريد الإلكتروني مستخدم بالفعل'};
       }
 
-      // ignore: unnecessary_non_null_assertion
       final unameChk = await _db!.conn.execute(
-        Sql.named(
-            'SELECT id FROM users WHERE LOWER(username)=@u LIMIT 1'),
+        Sql.named('SELECT id FROM users WHERE LOWER(username)=@u LIMIT 1'),
         parameters: {'u': username.toLowerCase()},
       );
       if (unameChk.isNotEmpty) {
@@ -206,36 +215,29 @@ class AuthService {
       }
 
       final id = _uuid.v4();
-      // ignore: unnecessary_non_null_assertion
       await _db!.conn.execute(
         Sql.named('''
-INSERT INTO users (id,name,email,phone,username,password_hash,role,is_active,created_at)
-VALUES (@id,@name,@email,@phone,@username,@hash,'beneficiary',true,NOW())
+INSERT INTO users (id,name,email,phone,username,password_hash,role,is_active,email_verified,created_at)
+VALUES (@id,@name,@email,@phone,@username,@hash,'beneficiary',false,false,NOW())
 '''),
         parameters: {
-          'id': id,
-          'name': name,
-          'email': email.toLowerCase(),
-          'phone': phone,
-          'username': username.toLowerCase(),
+          'id': id, 'name': name, 'email': email.toLowerCase(),
+          'phone': phone, 'username': username.toLowerCase(),
           'hash': hashPassword(password),
         },
       );
-      return _ok(User(
-        id: id,
-        name: name,
-        email: email,
-        phone: phone,
-        username: username,
-        role: UserRole.beneficiary,
-        createdAt: DateTime.now(),
-      ));
+
+      // Send verification code
+      final codeResult = await _sendVerificationCode(email.toLowerCase());
+      return {
+        'status': 'pending_verification',
+        'email': email.toLowerCase(),
+        if (!_isProduction && codeResult['debug_code'] != null)
+          'debug_code': codeResult['debug_code'],
+      };
     } on PgException catch (e) {
       if (e.message.contains('email')) {
-        return {
-          'error': 'email_exists',
-          'message': 'البريد الإلكتروني مستخدم بالفعل'
-        };
+        return {'error': 'email_exists', 'message': 'البريد الإلكتروني مستخدم بالفعل'};
       }
       if (e.message.contains('username')) {
         return {'error': 'username_exists', 'message': 'اسم المستخدم محجوز'};
@@ -256,31 +258,176 @@ VALUES (@id,@name,@email,@phone,@username,@hash,'beneficiary',true,NOW())
     required String password,
   }) {
     if (_memUsers.any((u) => u.email.toLowerCase() == email.toLowerCase())) {
-      return {
-        'error': 'email_exists',
-        'message': 'البريد الإلكتروني مستخدم بالفعل'
-      };
+      return {'error': 'email_exists', 'message': 'البريد الإلكتروني مستخدم بالفعل'};
     }
-    if (_memUsers
-        .any((u) => u.username?.toLowerCase() == username.toLowerCase())) {
+    if (_memUsers.any((u) => u.username?.toLowerCase() == username.toLowerCase())) {
       return {'error': 'username_exists', 'message': 'اسم المستخدم محجوز'};
     }
     final user = User(
-      id: _uuid.v4(),
-      name: name,
-      email: email,
-      phone: phone,
-      username: username,
-      passwordHash: hashPassword(password),
-      role: UserRole.beneficiary,
+      id: _uuid.v4(), name: name, email: email, phone: phone,
+      username: username, passwordHash: hashPassword(password),
+      role: UserRole.beneficiary, isActive: false, emailVerified: false,
       createdAt: DateTime.now(),
     );
     _memUsers.add(user);
-    return _ok(user);
+
+    final otp = _generateOtp();
+    final exp = DateTime.now().toUtc().add(const Duration(minutes: 10));
+    _memOtpStore['verify:${email.toLowerCase()}'] =
+        _OtpRecord(code: otp, purpose: 'email_verification', expiresAt: exp);
+
+    print('\n📧 Verification OTP [${email}] → $otp\n');
+
+    return {
+      'status': 'pending_verification',
+      'email': email.toLowerCase(),
+      if (!_isProduction) 'debug_code': otp,
+    };
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Google OAuth
+  // Email Verification
+  // ─────────────────────────────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> verifyEmail({
+    required String email,
+    required String code,
+  }) async {
+    final key = email.toLowerCase().trim();
+    return _db != null
+        ? await _verifyEmailDb(key, code)
+        : _verifyEmailMemory(key, code);
+  }
+
+  Future<Map<String, dynamic>> _verifyEmailDb(String email, String code) async {
+    try {
+      final rs = await _db!.conn.execute(
+        Sql.named('''
+SELECT id FROM otp_codes
+WHERE email_or_phone=@ep AND code=@code AND purpose='email_verification'
+  AND used=false AND expires_at>NOW()
+ORDER BY created_at DESC LIMIT 1
+'''),
+        parameters: {'ep': email, 'code': code},
+      );
+
+      if (rs.isEmpty) {
+        return {'error': 'invalid_code', 'message': 'الرمز غير صحيح أو انتهت صلاحيته'};
+      }
+
+      final otpId = rs.first.toColumnMap()['id'] as String;
+      await _db!.conn.execute(
+        Sql.named('UPDATE otp_codes SET used=true WHERE id=@id'),
+        parameters: {'id': otpId},
+      );
+      await _db!.conn.execute(
+        Sql.named('UPDATE users SET is_active=true, email_verified=true WHERE LOWER(email)=@e'),
+        parameters: {'e': email},
+      );
+
+      // Fetch user and return token
+      final userRs = await _db!.conn.execute(
+        Sql.named('SELECT * FROM users WHERE LOWER(email)=@e LIMIT 1'),
+        parameters: {'e': email},
+      );
+      if (userRs.isEmpty) return {'error': 'user_not_found'};
+      return _ok(User.fromRow(userRs.first.toColumnMap()));
+    } catch (e) {
+      print('VerifyEmail DB error: $e');
+      return {'error': 'server_error', 'message': 'حدث خطأ في الخادم'};
+    }
+  }
+
+  Map<String, dynamic> _verifyEmailMemory(String email, String code) {
+    final rec = _memOtpStore['verify:$email'];
+    if (rec == null || rec.code != code || rec.purpose != 'email_verification' ||
+        rec.expiresAt.isBefore(DateTime.now())) {
+      return {'error': 'invalid_code', 'message': 'الرمز غير صحيح أو انتهت صلاحيته'};
+    }
+    _memOtpStore.remove('verify:$email');
+    final idx = _memUsers.indexWhere((u) => u.email.toLowerCase() == email);
+    if (idx == -1) return {'error': 'user_not_found'};
+    _memUsers[idx] = _memUsers[idx].copyWith(isActive: true, emailVerified: true);
+    return _ok(_memUsers[idx]);
+  }
+
+  Future<Map<String, dynamic>> resendVerificationCode(String email) async {
+    final key = email.toLowerCase().trim();
+
+    // Check user exists and not yet verified
+    bool userExists = false;
+    bool alreadyVerified = false;
+
+    if (_db != null) {
+      try {
+        final rs = await _db!.conn.execute(
+          Sql.named('SELECT email_verified FROM users WHERE LOWER(email)=@e LIMIT 1'),
+          parameters: {'e': key},
+        );
+        if (rs.isNotEmpty) {
+          userExists = true;
+          alreadyVerified = rs.first.toColumnMap()['email_verified'] == true;
+        }
+      } catch (_) {}
+    } else {
+      final user = _memUsers.cast<User?>()
+          .firstWhere((u) => u!.email.toLowerCase() == key, orElse: () => null);
+      if (user != null) {
+        userExists = true;
+        alreadyVerified = user.emailVerified == true;
+      }
+    }
+
+    if (!userExists) return {'message': 'إذا كان البريد موجوداً، ستستلم الرمز قريباً'};
+    if (alreadyVerified) return {'error': 'already_verified', 'message': 'البريد محقق بالفعل'};
+
+    final result = await _sendVerificationCode(key);
+    return {'message': 'تم إرسال رمز التحقق', ...result};
+  }
+
+  Future<Map<String, dynamic>> _sendVerificationCode(String email) async {
+    final otp = _generateOtp();
+    final exp = DateTime.now().toUtc().add(const Duration(minutes: 10));
+
+    if (_db != null) {
+      try {
+        // Invalidate old codes
+        await _db!.conn.execute(
+          Sql.named('''
+UPDATE otp_codes SET used=true
+WHERE email_or_phone=@e AND purpose='email_verification' AND used=false
+'''),
+          parameters: {'e': email},
+        );
+        await _db!.conn.execute(
+          Sql.named('''
+INSERT INTO otp_codes (id,email_or_phone,code,purpose,expires_at,used,created_at)
+VALUES (@id,@ep,@code,'email_verification',@exp,false,NOW())
+'''),
+          parameters: {'id': _uuid.v4(), 'ep': email, 'code': otp, 'exp': exp},
+        );
+      } catch (e) {
+        print('Send verification code error: $e');
+      }
+    } else {
+      _memOtpStore['verify:$email'] =
+          _OtpRecord(code: otp, purpose: 'email_verification', expiresAt: exp);
+    }
+
+    // ── Production: plug in SendGrid / Twilio here ──────────────────────────
+    // await EmailService.send(to: email, subject: 'رمز التحقق', body: 'الرمز: $otp');
+    // ───────────────────────────────────────────────────────────────────────
+
+    print('\n📧 Verification OTP [$email] → $otp (expires: $exp)\n');
+
+    return {
+      'message': 'تم إرسال رمز التحقق',
+      if (!_isProduction) 'debug_code': otp,
+    };
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Google OAuth — auto-verified (Google already verified the email)
   // ─────────────────────────────────────────────────────────────────────────
 
   Future<Map<String, dynamic>?> loginWithGoogle(String idToken) async {
@@ -288,15 +435,17 @@ VALUES (@id,@name,@email,@phone,@username,@hash,'beneficiary',true,NOW())
     if (gData == null) return null;
 
     final googleId = gData['sub'] as String;
-    final email =
-        (gData['email'] as String? ?? '').toLowerCase();
+    final email = (gData['email'] as String? ?? '').toLowerCase();
     final name = gData['name'] as String? ??
         gData['given_name'] as String? ??
         email.split('@')[0];
+    final emailVerified = gData['email_verified'] == true ||
+        gData['email_verified'] == 'true';
 
     return _db != null
         ? await _googleLoginDb(
-            googleId: googleId, email: email, name: name)
+            googleId: googleId, email: email, name: name,
+            emailVerified: emailVerified)
         : _googleLoginMemory(
             googleId: googleId, email: email, name: name);
   }
@@ -307,7 +456,6 @@ VALUES (@id,@name,@email,@phone,@username,@hash,'beneficiary',true,NOW())
           'https://oauth2.googleapis.com/tokeninfo?id_token=$idToken'));
       if (resp.statusCode != 200) return null;
       final data = jsonDecode(resp.body) as Map<String, dynamic>;
-
       final clientId = Platform.environment['GOOGLE_CLIENT_ID'] ?? '';
       if (clientId.isNotEmpty && data['aud'] != clientId) {
         print('Google aud mismatch: ${data['aud']} vs $clientId');
@@ -324,69 +472,61 @@ VALUES (@id,@name,@email,@phone,@username,@hash,'beneficiary',true,NOW())
     required String googleId,
     required String email,
     required String name,
+    required bool emailVerified,
   }) async {
     try {
       // 1. Find by google_id
-      // ignore: unnecessary_non_null_assertion
       var rs = await _db!.conn.execute(
-        Sql.named(
-            'SELECT * FROM users WHERE google_id=@g AND is_active=true LIMIT 1'),
+        Sql.named('SELECT * FROM users WHERE google_id=@g LIMIT 1'),
         parameters: {'g': googleId},
       );
 
       if (rs.isEmpty) {
         // 2. Find by email → link Google ID
-        // ignore: unnecessary_non_null_assertion
         rs = await _db!.conn.execute(
-          Sql.named(
-              'SELECT * FROM users WHERE LOWER(email)=@e AND is_active=true LIMIT 1'),
+          Sql.named('SELECT * FROM users WHERE LOWER(email)=@e LIMIT 1'),
           parameters: {'e': email},
         );
 
         if (rs.isNotEmpty) {
-          // ignore: unnecessary_non_null_assertion
           await _db!.conn.execute(
-            Sql.named(
-                'UPDATE users SET google_id=@g WHERE LOWER(email)=@e'),
+            Sql.named('UPDATE users SET google_id=@g, is_active=true, email_verified=true WHERE LOWER(email)=@e'),
             parameters: {'g': googleId, 'e': email},
           );
         } else {
-          // 3. Create new Google account
+          // 3. Create new account — auto-activated
           final id = _uuid.v4();
-          // ignore: unnecessary_non_null_assertion
           await _db!.conn.execute(
             Sql.named('''
-INSERT INTO users (id,name,email,google_id,role,is_active,created_at)
-VALUES (@id,@name,@email,@g,'beneficiary',true,NOW())
+INSERT INTO users (id,name,email,google_id,role,is_active,email_verified,created_at)
+VALUES (@id,@name,@email,@g,'beneficiary',true,true,NOW())
 '''),
-            parameters: {
-              'id': id,
-              'name': name,
-              'email': email,
-              'g': googleId,
-            },
+            parameters: {'id': id, 'name': name, 'email': email, 'g': googleId},
           );
           return _ok(User(
-            id: id,
-            name: name,
-            email: email,
-            googleId: googleId,
-            role: UserRole.beneficiary,
+            id: id, name: name, email: email, googleId: googleId,
+            role: UserRole.beneficiary, isActive: true, emailVerified: true,
             createdAt: DateTime.now(),
           ));
         }
 
-        // Re-fetch after update
-        // ignore: unnecessary_non_null_assertion
         rs = await _db!.conn.execute(
-          Sql.named(
-              'SELECT * FROM users WHERE LOWER(email)=@e LIMIT 1'),
+          Sql.named('SELECT * FROM users WHERE LOWER(email)=@e LIMIT 1'),
           parameters: {'e': email},
         );
       }
 
       if (rs.isEmpty) return null;
-      return _ok(User.fromRow(rs.first.toColumnMap()));
+      final user = User.fromRow(rs.first.toColumnMap());
+      if (user.isActive != true) {
+        // Reactivate if was pending (linked Google account)
+        await _db!.conn.execute(
+          Sql.named('UPDATE users SET is_active=true, email_verified=true WHERE id=@id'),
+          parameters: {'id': user.id},
+        );
+        return _ok(user.copyWith(isActive: true, emailVerified: true));
+      }
+      return _ok(user);
     } catch (e) {
       print('Google login DB error: $e');
       return null;
@@ -404,17 +544,15 @@ VALUES (@id,@name,@email,@g,'beneficiary',true,NOW())
         );
     if (user == null) {
       user = User(
-        id: _uuid.v4(),
-        name: name,
-        email: email,
-        googleId: googleId,
-        role: UserRole.beneficiary,
+        id: _uuid.v4(), name: name, email: email, googleId: googleId,
+        role: UserRole.beneficiary, isActive: true, emailVerified: true,
         createdAt: DateTime.now(),
       );
       _memUsers.add(user);
-    } else if (user.googleId == null) {
+    } else {
       final idx = _memUsers.indexOf(user);
-      _memUsers[idx] = user.copyWith(googleId: googleId);
+      _memUsers[idx] = user.copyWith(
+          googleId: googleId, isActive: true, emailVerified: true);
       user = _memUsers[idx];
     }
     return _ok(user);
@@ -428,22 +566,18 @@ VALUES (@id,@name,@email,@g,'beneficiary',true,NOW())
       String emailOrPhone) async {
     final key = emailOrPhone.toLowerCase().trim();
 
-    // Check user exists (silently — don't reveal)
     bool exists = false;
     if (_db != null) {
       try {
-        // ignore: unnecessary_non_null_assertion
         final rs = await _db!.conn.execute(
-          Sql.named(
-              'SELECT id FROM users WHERE LOWER(email)=@q OR phone=@q LIMIT 1'),
+          Sql.named('SELECT id FROM users WHERE LOWER(email)=@q OR phone=@q LIMIT 1'),
           parameters: {'q': key},
         );
         exists = rs.isNotEmpty;
       } catch (_) {}
     } else {
       exists = _memUsers.any((u) =>
-          u.email.toLowerCase() == key ||
-          u.phone == emailOrPhone.trim());
+          u.email.toLowerCase() == key || u.phone == emailOrPhone.trim());
     }
 
     final result = <String, dynamic>{
@@ -451,38 +585,27 @@ VALUES (@id,@name,@email,@g,'beneficiary',true,NOW())
     };
     if (!exists) return result;
 
-    final otp =
-        (100000 + Random.secure().nextInt(900000)).toString();
+    final otp = _generateOtp();
     final exp = DateTime.now().toUtc().add(const Duration(minutes: 10));
 
     if (_db != null) {
       try {
-        // ignore: unnecessary_non_null_assertion
         await _db!.conn.execute(
           Sql.named('''
-INSERT INTO otp_codes (id,email_or_phone,code,expires_at,used,created_at)
-VALUES (@id,@ep,@code,@exp,false,NOW())
+INSERT INTO otp_codes (id,email_or_phone,code,purpose,expires_at,used,created_at)
+VALUES (@id,@ep,@code,'password_reset',@exp,false,NOW())
 '''),
-          parameters: {
-            'id': _uuid.v4(),
-            'ep': key,
-            'code': otp,
-            'exp': exp,
-          },
+          parameters: {'id': _uuid.v4(), 'ep': key, 'code': otp, 'exp': exp},
         );
       } catch (e) {
         print('OTP insert error: $e');
       }
     } else {
-      _memOtpStore[key] = _OtpRecord(code: otp, expiresAt: exp);
+      _memOtpStore[key] = _OtpRecord(
+          code: otp, purpose: 'password_reset', expiresAt: exp);
     }
 
-    // ── Production: plug in SendGrid / Twilio here ────────────────────────
-    // await EmailService.sendOtp(to: emailOrPhone, code: otp);
-    // ─────────────────────────────────────────────────────────────────────
-
-    print('\n🔑 OTP [$emailOrPhone] → $otp (expires: $exp)\n');
-
+    print('\n🔑 Reset OTP [$emailOrPhone] → $otp (expires: $exp)\n');
     if (!_isProduction) result['debug_otp'] = otp;
     return result;
   }
@@ -498,11 +621,11 @@ VALUES (@id,@ep,@code,@exp,false,NOW())
 
     if (_db != null) {
       try {
-        // ignore: unnecessary_non_null_assertion
         final rs = await _db!.conn.execute(
           Sql.named('''
 SELECT id FROM otp_codes
-WHERE email_or_phone=@ep AND code=@code AND used=false AND expires_at>NOW()
+WHERE email_or_phone=@ep AND code=@code AND purpose='password_reset'
+  AND used=false AND expires_at>NOW()
 ORDER BY created_at DESC LIMIT 1
 '''),
           parameters: {'ep': key, 'code': otp},
@@ -514,41 +637,33 @@ ORDER BY created_at DESC LIMIT 1
       } catch (_) {}
     } else {
       final rec = _memOtpStore[key];
-      if (rec != null &&
-          rec.code == otp &&
+      if (rec != null && rec.code == otp && rec.purpose == 'password_reset' &&
           rec.expiresAt.isAfter(DateTime.now())) {
         valid = true;
       }
     }
 
     if (!valid) {
-      return {
-        'error': 'invalid_otp',
-        'message': 'الرمز غير صحيح أو انتهت صلاحيته'
-      };
+      return {'error': 'invalid_otp', 'message': 'الرمز غير صحيح أو انتهت صلاحيته'};
     }
 
     final newHash = hashPassword(newPassword);
 
     if (_db != null) {
       if (otpId != null) {
-        // ignore: unnecessary_non_null_assertion
         await _db!.conn.execute(
           Sql.named('UPDATE otp_codes SET used=true WHERE id=@id'),
           parameters: {'id': otpId},
         );
       }
-      // ignore: unnecessary_non_null_assertion
       await _db!.conn.execute(
-        Sql.named(
-            'UPDATE users SET password_hash=@h WHERE LOWER(email)=@q OR phone=@q'),
+        Sql.named('UPDATE users SET password_hash=@h WHERE LOWER(email)=@q OR phone=@q'),
         parameters: {'h': newHash, 'q': key},
       );
     } else {
       _memOtpStore.remove(key);
       final idx = _memUsers.indexWhere((u) =>
-          u.email.toLowerCase() == key ||
-          u.phone == emailOrPhone.trim());
+          u.email.toLowerCase() == key || u.phone == emailOrPhone.trim());
       if (idx != -1) {
         _memUsers[idx] = _memUsers[idx].copyWith(passwordHash: newHash);
       }
@@ -558,12 +673,15 @@ ORDER BY created_at DESC LIMIT 1
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Helper
+  // Helpers
   // ─────────────────────────────────────────────────────────────────────────
+
+  String _generateOtp() =>
+      (100000 + Random.secure().nextInt(900000)).toString();
 
   Map<String, dynamic> _ok(User user) => {
         'token': _generateToken(user.id, user.role.name),
         'user': user.toPublicJson(),
-        'expiresIn': 604800, // 7 days
+        'expiresIn': 604800,
       };
 }

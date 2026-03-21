@@ -8,6 +8,8 @@ import 'package:intl/intl.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:charity_app/core/theme/app_colors.dart';
 import 'package:charity_app/core/permissions/role.dart';
+import 'package:go_router/go_router.dart';
+import 'package:charity_app/core/router/app_router.dart';
 import 'package:charity_app/shared/providers/app_providers.dart';
 import '../providers/donations_provider.dart';
 import '../providers/payment_flow_provider.dart';
@@ -706,6 +708,51 @@ class _DonateNowTab extends ConsumerWidget {
                 amount: selectedAmount ??
                     double.tryParse(customAmountCtrl.text.replaceAll(',', '')),
                 onTap: () async {
+                  // ── Auth guard: يجب تسجيل الدخول للتبرع ─────────────────
+                  final authState = ref.read(authProvider);
+                  if (!authState.isAuthenticated) {
+                    if (!context.mounted) return;
+                    await showDialog(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20)),
+                        title: Text('تسجيل الدخول مطلوب',
+                            style: GoogleFonts.cairo(
+                                fontWeight: FontWeight.w800)),
+                        content: Text(
+                            'يجب تسجيل الدخول أو إنشاء حساب لإتمام عملية التبرع.',
+                            style: GoogleFonts.cairo(fontSize: 14)),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            child: Text('إلغاء',
+                                style: GoogleFonts.cairo(
+                                    color: Colors.grey)),
+                          ),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                            ),
+                            onPressed: () {
+                              Navigator.pop(ctx);
+                              context.push(AppRoutes.authEmail +
+                                  '?tab=login');
+                            },
+                            child: Text('تسجيل الدخول',
+                                style: GoogleFonts.cairo(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700)),
+                          ),
+                        ],
+                      ),
+                    );
+                    return;
+                  }
+                  // ─────────────────────────────────────────────────────────
+
                   final amt = selectedAmount ??
                       double.tryParse(
                           customAmountCtrl.text.replaceAll(',', ''));
