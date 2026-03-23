@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -297,19 +299,44 @@ class _OtpStep extends StatefulWidget {
   State<_OtpStep> createState() => _OtpStepState();
 }
 
-class _OtpStepState extends State<_OtpStep> {
+class _OtpStepState extends State<_OtpStep> with WidgetsBindingObserver {
   int _seconds = 60;
-  late final Stream<int> _ticker;
+  Timer? _timer;
+  late DateTime _endTime;
 
   @override
   void initState() {
     super.initState();
-    _ticker = Stream.periodic(
-      const Duration(seconds: 1),
-      (i) => 59 - i,
-    ).take(60);
-    _ticker.listen((s) {
-      if (mounted) setState(() => _seconds = s);
+    WidgetsBinding.instance.addObserver(this);
+    _startCountdown();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      final remaining = _endTime.difference(DateTime.now()).inSeconds;
+      if (mounted) setState(() => _seconds = remaining.clamp(0, 60));
+    }
+  }
+
+  void _startCountdown() {
+    _endTime = DateTime.now().add(const Duration(seconds: 60));
+    _seconds = 60;
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) { t.cancel(); return; }
+      final remaining = _endTime.difference(DateTime.now()).inSeconds;
+      setState(() {
+        _seconds = remaining.clamp(0, 60);
+        if (_seconds <= 0) t.cancel();
+      });
     });
   }
 
@@ -395,7 +422,10 @@ class _OtpStepState extends State<_OtpStep> {
           )
         else
           TextButton(
-            onPressed: widget.onResend,
+            onPressed: () {
+              widget.onResend();
+              _startCountdown();
+            },
             child: Text(
               'إعادة إرسال الرمز',
               style: GoogleFonts.cairo(

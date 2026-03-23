@@ -15,7 +15,8 @@ class VerifyEmailPage extends ConsumerStatefulWidget {
   ConsumerState<VerifyEmailPage> createState() => _VerifyEmailPageState();
 }
 
-class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
+class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage>
+    with WidgetsBindingObserver {
   final List<TextEditingController> _controllers =
       List.generate(6, (_) => TextEditingController());
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
@@ -24,32 +25,44 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
   String? _errorMsg;
   int _resendCountdown = 60;
   Timer? _timer;
+  DateTime? _endTime;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _startCountdown();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     for (final c in _controllers) c.dispose();
     for (final f in _focusNodes) f.dispose();
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _endTime != null) {
+      final remaining = _endTime!.difference(DateTime.now()).inSeconds;
+      if (!mounted) return;
+      setState(() => _resendCountdown = remaining.clamp(0, 60));
+      if (_resendCountdown <= 0) _timer?.cancel();
+    }
+  }
+
   void _startCountdown() {
+    _endTime = DateTime.now().add(const Duration(seconds: 60));
     _resendCountdown = 60;
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (!mounted) { t.cancel(); return; }
+      final remaining = _endTime!.difference(DateTime.now()).inSeconds;
       setState(() {
-        if (_resendCountdown > 0) {
-          _resendCountdown--;
-        } else {
-          t.cancel();
-        }
+        _resendCountdown = remaining.clamp(0, 60);
+        if (_resendCountdown <= 0) t.cancel();
       });
     });
   }
