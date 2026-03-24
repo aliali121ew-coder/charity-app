@@ -1,64 +1,31 @@
+import 'dart:convert';
 import 'dart:io';
-import 'package:mailer/mailer.dart';
-import 'package:mailer/smtp_server.dart';
+import 'package:http/http.dart' as http;
 
-/// Sends transactional emails via SMTP.
+/// Sends transactional emails via Resend HTTP API.
 ///
 /// Configure via environment variables:
-///   SMTP_HOST     – e.g. smtp.gmail.com  (default)
-///   SMTP_PORT     – e.g. 587             (default)
-///   SMTP_USER     – sender email address
-///   SMTP_PASSWORD – app password (Gmail: enable 2FA → create App Password)
-///   EMAIL_FROM    – display name + address, defaults to SMTP_USER
+///   RESEND_API_KEY  – API key from resend.com (required)
+///   EMAIL_FROM      – sender address (default: onboarding@resend.dev)
 class EmailService {
-  final String _host;
-  final int _port;
-  final String _user;
-  final String _password;
+  final String _apiKey;
   final String _from;
-  final bool _ssl;
 
-  EmailService._({
-    required String host,
-    required int port,
-    required String user,
-    required String password,
-    required String from,
-    required bool ssl,
-  })  : _host = host,
-        _port = port,
-        _user = user,
-        _password = password,
-        _from = from,
-        _ssl = ssl;
+  EmailService._({required String apiKey, required String from})
+      : _apiKey = apiKey,
+        _from = from;
 
-  /// Returns null if SMTP is not configured (missing SMTP_USER / SMTP_PASSWORD).
+  /// Returns null if RESEND_API_KEY is not set.
   static EmailService? fromEnv() {
-    final user = Platform.environment['SMTP_USER'] ?? '';
-    final password = Platform.environment['SMTP_PASSWORD'] ?? '';
-    if (user.isEmpty || password.isEmpty) return null;
+    // Support both RESEND_API_KEY and legacy SMTP_PASSWORD (Resend API key)
+    final apiKey = Platform.environment['RESEND_API_KEY'] ??
+        Platform.environment['SMTP_PASSWORD'] ??
+        '';
+    if (apiKey.isEmpty || !apiKey.startsWith('re_')) return null;
 
-    final host = Platform.environment['SMTP_HOST'] ?? 'smtp.gmail.com';
-    final port = int.tryParse(Platform.environment['SMTP_PORT'] ?? '587') ?? 587;
-    final ssl = port == 465;
-    final from = Platform.environment['EMAIL_FROM'] ?? user;
-
-    return EmailService._(
-        host: host, port: port, user: user, password: password, from: from, ssl: ssl);
-  }
-
-  SmtpServer get _smtpServer {
-    if (_host == 'smtp.gmail.com') {
-      return gmail(_user, _password);
-    }
-    return SmtpServer(
-      _host,
-      port: _port,
-      ssl: _ssl,
-      username: _user,
-      password: _password,
-      ignoreBadCertificate: false,
-    );
+    final from =
+        Platform.environment['EMAIL_FROM'] ?? 'onboarding@resend.dev';
+    return EmailService._(apiKey: apiKey, from: from);
   }
 
   /// Send OTP email. Returns true on success, false on failure.
@@ -68,8 +35,9 @@ class EmailService {
     required String purpose, // 'email_verification' | 'password_reset'
   }) async {
     final isVerification = purpose == 'email_verification';
-    final subject =
-        isVerification ? 'رمز تفعيل البريد الإلكتروني' : 'رمز إعادة تعيين كلمة المرور';
+    final subject = isVerification
+        ? 'رمز تفعيل البريد الإلكتروني'
+        : 'رمز إعادة تعيين كلمة المرور';
 
     final html = '''
 <!DOCTYPE html>
@@ -100,22 +68,28 @@ class EmailService {
 </html>
 ''';
 
-    final message = Message()
-      ..from = Address(_from, 'تطبيق الخير')
-      ..recipients.add(to)
-      ..subject = subject
-      ..html = html;
-
     try {
-      await send(message, _smtpServer);
-      print('📧 Email sent to $to (purpose: $purpose)');
-      return true;
-    } on MailerException catch (e) {
-      print('❌ Email send failed: ${e.message}');
-      for (final p in e.problems) {
-        print('   Problem: ${p.code}: ${p.msg}');
+      final response = await http.post(
+        Uri.parse('https://api.resend.com/emails'),
+        headers: {
+          'Authorization': 'Bearer $_apiKey',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'from': 'تطبيق الخير <$_from>',
+          'to': [to],
+          'subject': subject,
+          'html': html,
+        }),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        print('📧 Email sent to $to via Resend (purpose: $purpose)');
+        return true;
+      } else {
+        print('❌ Resend API error ${response.statusCode}: ${response.body}');
+        return false;
       }
-      return false;
     } catch (e) {
       print('❌ Email error: $e');
       return false;
