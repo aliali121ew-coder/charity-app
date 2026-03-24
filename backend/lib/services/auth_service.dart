@@ -10,6 +10,7 @@ import 'package:uuid/uuid.dart';
 
 import 'package:charity_backend/models/user.dart';
 import 'package:charity_backend/services/db.dart';
+import 'package:charity_backend/services/email_service.dart';
 
 class _OtpRecord {
   final String code;
@@ -414,11 +415,8 @@ VALUES (@id,@ep,@code,'email_verification',@exp,false,NOW())
           _OtpRecord(code: otp, purpose: 'email_verification', expiresAt: exp);
     }
 
-    // ── Production: plug in SendGrid / Twilio here ──────────────────────────
-    // await EmailService.send(to: email, subject: 'رمز التحقق', body: 'الرمز: $otp');
-    // ───────────────────────────────────────────────────────────────────────
-
     print('\n📧 Verification OTP [$email] → $otp (expires: $exp)\n');
+    await EmailService.sendVerificationCode(email, otp);
 
     return {
       'message': 'تم إرسال رمز التحقق',
@@ -606,6 +604,10 @@ VALUES (@id,@ep,@code,'password_reset',@exp,false,NOW())
     }
 
     print('\n🔑 Reset OTP [$emailOrPhone] → $otp (expires: $exp)\n');
+    // Send via email if input looks like an email address
+    if (key.contains('@')) {
+      await EmailService.sendPasswordResetCode(key, otp);
+    }
     if (!_isProduction) result['debug_otp'] = otp;
     return result;
   }
