@@ -10,6 +10,7 @@ import 'package:uuid/uuid.dart';
 
 import 'package:charity_backend/models/user.dart';
 import 'package:charity_backend/services/db.dart';
+import 'package:charity_backend/services/email_service.dart';
 
 class _OtpRecord {
   final String code;
@@ -26,6 +27,7 @@ class AuthService {
   final Db? _db;
   final String _jwtSecret;
   final bool _isProduction;
+  final EmailService? _email;
   static const _uuid = Uuid();
 
   // ── In-memory fallback (development) ──────────────────────────────────────
@@ -37,7 +39,8 @@ class AuthService {
       : _db = db,
         _jwtSecret = Platform.environment['JWT_SECRET'] ??
             'dev-secret-change-in-production-!!',
-        _isProduction = Platform.environment['PRODUCTION'] == 'true' {
+        _isProduction = Platform.environment['PRODUCTION'] == 'true',
+        _email = EmailService.fromEnv() {
     if (!_seeded) {
       _seeded = true;
       _memUsers.addAll([
@@ -414,15 +417,20 @@ VALUES (@id,@ep,@code,'email_verification',@exp,false,NOW())
           _OtpRecord(code: otp, purpose: 'email_verification', expiresAt: exp);
     }
 
-    // ── Production: plug in SendGrid / Twilio here ──────────────────────────
-    // await EmailService.send(to: email, subject: 'رمز التحقق', body: 'الرمز: $otp');
+    // ── Send real email if SMTP is configured ─────────────────────────────
+    bool emailSent = false;
+    if (_email != null) {
+      emailSent = await _email!.sendOtp(
+          to: email, otp: otp, purpose: 'email_verification');
+    }
     // ───────────────────────────────────────────────────────────────────────
 
-    print('\n📧 Verification OTP [$email] → $otp (expires: $exp)\n');
+    print('\n📧 Verification OTP [$email] → $otp (expires: $exp, sent: $emailSent)\n');
 
     return {
       'message': 'تم إرسال رمز التحقق',
-      if (!_isProduction) 'debug_code': otp,
+      // Always return debug_code in non-production OR when email failed
+      if (!_isProduction || !emailSent) 'debug_code': otp,
     };
   }
 
@@ -605,8 +613,14 @@ VALUES (@id,@ep,@code,'password_reset',@exp,false,NOW())
           code: otp, purpose: 'password_reset', expiresAt: exp);
     }
 
-    print('\n🔑 Reset OTP [$emailOrPhone] → $otp (expires: $exp)\n');
-    if (!_isProduction) result['debug_otp'] = otp;
+    bool emailSent = false;
+    if (_email != null && key.contains('@')) {
+      emailSent = await _email!.sendOtp(
+          to: key, otp: otp, purpose: 'password_reset');
+    }
+
+    print('\n🔑 Reset OTP [$emailOrPhone] → $otp (expires: $exp, sent: $emailSent)\n');
+    if (!_isProduction || !emailSent) result['debug_otp'] = otp;
     return result;
   }
 
