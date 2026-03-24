@@ -83,7 +83,12 @@ class AuthRoutes {
           username.isEmpty || password.isEmpty) {
         return _err('جميع الحقول مطلوبة', 400);
       }
-      if (!email.contains('@')) return _err('البريد الإلكتروني غير صحيح', 400);
+      if (!RegExp(r'^[\w.+-]+@[\w-]+\.[\w.]+$').hasMatch(email)) {
+        return _err('البريد الإلكتروني غير صحيح', 400);
+      }
+      if (!email.toLowerCase().endsWith('@gmail.com')) {
+        return _err('يُقبل بريد Gmail فقط (@gmail.com)', 400);
+      }
       if (password.length < 8) {
         return _err('كلمة المرور يجب أن تكون 8 أحرف على الأقل', 400);
       }

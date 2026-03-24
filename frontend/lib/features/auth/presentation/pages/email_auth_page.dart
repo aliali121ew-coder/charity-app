@@ -411,7 +411,12 @@ class _RegisterTab extends StatelessWidget {
               isDark: isDark,
               validator: (v) {
                 if (v == null || v.isEmpty) return 'هذا الحقل مطلوب';
-                if (!v.contains('@')) return 'بريد إلكتروني غير صحيح';
+                if (!RegExp(r'^[\w.+-]+@[\w-]+\.[\w.]+$').hasMatch(v.trim())) {
+                  return 'بريد إلكتروني غير صحيح';
+                }
+                if (!v.trim().toLowerCase().endsWith('@gmail.com')) {
+                  return 'يُقبل بريد Gmail فقط (@gmail.com)';
+                }
                 return null;
               },
             ),
