@@ -339,6 +339,11 @@ class AuthNotifier extends Notifier<AuthState> {
       if (resp.statusCode < 200 || resp.statusCode >= 300) {
         return 'resend_error';
       }
+      // Update debug code if returned (non-production)
+      final body = jsonDecode(resp.body) as Map<String, dynamic>;
+      if (body['debug_code'] != null) {
+        state = state.copyWith(debugVerificationCode: body['debug_code'] as String);
+      }
       return null;
     } catch (_) {
       return 'server_error';
