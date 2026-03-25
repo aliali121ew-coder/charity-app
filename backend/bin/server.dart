@@ -31,6 +31,13 @@ const _allowedOrigins = ['http://localhost:3000', 'http://localhost:8080'];
 void main() async {
   final port = int.parse(Platform.environment['PORT'] ?? '8080');
 
+  // ── Env diagnostics ───────────────────────────────────────────────────────
+  print('🔍 ENV CHECK: PORT=${Platform.environment['PORT']} '
+      'SMTP_USER=${Platform.environment['SMTP_USER']?.isEmpty == false ? "SET" : "MISSING"} '
+      'SMTP_PASSWORD=${Platform.environment['SMTP_PASSWORD']?.isEmpty == false ? "SET" : "MISSING"} '
+      'PRODUCTION=${Platform.environment['PRODUCTION']} '
+      'total_vars=${Platform.environment.length}');
+
   // ── Database (optional) ───────────────────────────────────────────────────
   final db = await Db.connectFromEnv();
   PaymentsStore paymentsStore;
