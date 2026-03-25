@@ -82,19 +82,25 @@ class _GmailConfig extends _Config {
 
   @override
   Future<bool> send({required String to, required String subject, required String html}) async {
-    try {
-      final msg = mailer.Message()
-        ..from = mailer.Address(from.isEmpty ? user : from, 'تطبيق الخير')
-        ..recipients.add(to)
-        ..subject = subject
-        ..html = html;
-      await mailer.send(msg, gmail(user, password));
-      print('📧 Gmail → $to');
-      return true;
-    } catch (e) {
-      print('❌ Gmail error: $e');
-      return false;
+    // Try port 587 (STARTTLS) first — port 465 is often blocked on cloud hosts
+    for (final server in [
+      SmtpServer('smtp.gmail.com', port: 587, username: user, password: password),
+      gmail(user, password), // port 465 SSL fallback
+    ]) {
+      try {
+        final msg = mailer.Message()
+          ..from = mailer.Address(from.isEmpty ? user : from, 'تطبيق الخير')
+          ..recipients.add(to)
+          ..subject = subject
+          ..html = html;
+        await mailer.send(msg, server);
+        print('📧 Gmail → $to (port ${server.port})');
+        return true;
+      } catch (e) {
+        print('❌ Gmail port ${server.port} error: $e');
+      }
     }
+    return false;
   }
 }
 
