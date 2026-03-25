@@ -366,8 +366,18 @@ class AuthNotifier extends Notifier<AuthState> {
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'emailOrPhone': emailOrPhone}),
       );
-      state = state.copyWith(isLoading: false);
-      if (resp.statusCode < 200 || resp.statusCode >= 300) return 'send_otp_error';
+      if (resp.statusCode < 200 || resp.statusCode >= 300) {
+        state = state.copyWith(isLoading: false);
+        return 'send_otp_error';
+      }
+      // Store debug_otp if server returns it (non-production or email failed)
+      final body = resp.body.isNotEmpty
+          ? jsonDecode(resp.body) as Map<String, dynamic>
+          : <String, dynamic>{};
+      state = state.copyWith(
+        isLoading: false,
+        debugVerificationCode: body['debug_otp']?.toString(),
+      );
       return null;
     } catch (_) {
       state = state.copyWith(isLoading: false, error: 'server_error');

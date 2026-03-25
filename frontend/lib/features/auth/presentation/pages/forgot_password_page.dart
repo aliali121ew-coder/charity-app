@@ -164,6 +164,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
                   isLoading: isLoading,
                   onSubmit: () => setState(() => _step = _ResetStep.newPassword),
                   onResend: _sendOtp,
+                  debugOtp: ref.watch(authProvider.select((s) => s.debugVerificationCode)),
                 ),
               _ResetStep.newPassword =>
                 _NewPasswordStep(
@@ -281,6 +282,7 @@ class _OtpStep extends StatefulWidget {
   final bool isLoading;
   final VoidCallback onSubmit;
   final VoidCallback onResend;
+  final String? debugOtp;
 
   const _OtpStep({
     super.key,
@@ -291,6 +293,7 @@ class _OtpStep extends StatefulWidget {
     required this.isLoading,
     required this.onSubmit,
     required this.onResend,
+    this.debugOtp,
   });
 
   @override
@@ -300,6 +303,8 @@ class _OtpStep extends StatefulWidget {
 class _OtpStepState extends State<_OtpStep> {
   int _seconds = 60;
   late final Stream<int> _ticker;
+
+  String get _otp => widget.controllers.map((c) => c.text).join();
 
   @override
   void initState() {
@@ -323,7 +328,34 @@ class _OtpStepState extends State<_OtpStep> {
           subtitle: 'تم إرسال رمز مكوّن من 6 أرقام إلى\n${widget.target}',
           isDark: widget.isDark,
         ),
-        const SizedBox(height: 32),
+        const SizedBox(height: 16),
+        // Debug OTP display (shown when email fails or in dev mode)
+        if (widget.debugOtp != null)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            margin: const EdgeInsets.only(bottom: 8),
+            decoration: BoxDecoration(
+              color: Colors.amber.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.amber.withValues(alpha: 0.5)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.bug_report_rounded, color: Colors.amber, size: 18),
+                const SizedBox(width: 8),
+                Text('رمز التجربة: ',
+                    style: GoogleFonts.cairo(fontSize: 13, color: Colors.amber)),
+                Text(widget.debugOtp!,
+                    style: GoogleFonts.cairo(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.amber,
+                        letterSpacing: 4)),
+              ],
+            ),
+          ),
+        const SizedBox(height: 16),
         // 6 OTP boxes
         Directionality(
           textDirection: TextDirection.ltr,
@@ -409,7 +441,20 @@ class _OtpStepState extends State<_OtpStep> {
         _FpButton(
             label: 'تأكيد الرمز',
             isLoading: widget.isLoading,
-            onTap: widget.onSubmit),
+            onTap: () {
+              if (_otp.length < 6) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text('أدخل الرمز المكون من 6 أرقام',
+                      style: GoogleFonts.cairo()),
+                  backgroundColor: AppColors.error,
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                ));
+                return;
+              }
+              widget.onSubmit();
+            }),
       ],
     );
   }
