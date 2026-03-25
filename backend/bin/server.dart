@@ -103,8 +103,20 @@ void main() async {
   );
 
   // Health check
-  router.get('/health', (Request req) => Response.ok('{"status":"ok"}',
-      headers: {'Content-Type': 'application/json'}));
+  router.get('/health', (Request req) {
+    final smtpUser = Platform.environment['SMTP_USER'] ?? '';
+    final smtpPass = Platform.environment['SMTP_PASSWORD'] ?? '';
+    final brevo   = Platform.environment['BREVO_API_KEY'] ?? '';
+    final resend  = Platform.environment['RESEND_API_KEY'] ?? '';
+    String emailProvider = 'none';
+    if (smtpUser.isNotEmpty && smtpPass.isNotEmpty) emailProvider = 'gmail';
+    else if (brevo.isNotEmpty) emailProvider = 'brevo';
+    else if (resend.isNotEmpty) emailProvider = 'resend';
+    return Response.ok(
+      '{"status":"ok","email_provider":"$emailProvider","smtp_user_set":${smtpUser.isNotEmpty},"smtp_pass_set":${smtpPass.isNotEmpty}}',
+      headers: {'Content-Type': 'application/json'},
+    );
+  });
 
   // App version check (public - no auth required)
   router.get('/api/version', (Request req) {
