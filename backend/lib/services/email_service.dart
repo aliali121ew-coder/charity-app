@@ -26,15 +26,19 @@ class EmailService {
     final from     = Platform.environment['EMAIL_FROM'] ?? smtpUser;
 
     if (smtpUser.isNotEmpty && smtpPass.isNotEmpty) {
+      print('📧 EmailService: Gmail SMTP → $smtpUser');
       return EmailService._(_GmailConfig(user: smtpUser, password: smtpPass, from: from));
     }
     if (brevo.isNotEmpty) {
+      print('📧 EmailService: Brevo API → $from');
       return EmailService._(_BrevoConfig(apiKey: brevo, from: from));
     }
     if (resend.isNotEmpty && resend.startsWith('re_')) {
-      return EmailService._(_ResendConfig(apiKey: resend,
-          from: from.isEmpty ? 'onboarding@resend.dev' : from));
+      final f = from.isEmpty ? 'onboarding@resend.dev' : from;
+      print('📧 EmailService: Resend API → $f');
+      return EmailService._(_ResendConfig(apiKey: resend, from: f));
     }
+    print('⚠️  EmailService: no provider configured (SMTP_USER/SMTP_PASSWORD or BREVO_API_KEY or RESEND_API_KEY missing)');
     return null;
   }
 
