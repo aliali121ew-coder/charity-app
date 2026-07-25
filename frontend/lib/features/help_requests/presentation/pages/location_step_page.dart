@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -60,6 +61,13 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
   gmaps.GoogleMapController? _googleMapController;
   LatLng _center = _kDefaultCenter;
 
+  // ── Delivery / Tracking & Route State ─────────────────────────────────────
+  bool _showTraffic = false;
+  bool _isRouteMode = false;
+  LatLng? _originPoint;
+  double _distanceKm = 0.0;
+  int _etaMinutes = 0;
+
   bool get _isDesktop {
     if (kIsWeb) return false;
     return defaultTargetPlatform == TargetPlatform.windows ||
@@ -107,6 +115,28 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
     } else {
       _googleMapController?.animateCamera(gmaps.CameraUpdate.zoomOut());
     }
+  }
+
+  void _updateRouteCalculation() {
+    final origin = _originPoint ?? LatLng(_center.latitude - 0.015, _center.longitude - 0.015);
+    final dist = _calculateDistance(origin, _center);
+    final minutes = (dist / 25 * 60).round();
+    setState(() {
+      _distanceKm = double.parse(dist.toStringAsFixed(1));
+      _etaMinutes = math.max(1, minutes);
+    });
+  }
+
+  double _calculateDistance(LatLng p1, LatLng p2) {
+    final dLat = (p2.latitude - p1.latitude) * math.pi / 180;
+    final dLon = (p2.longitude - p1.longitude) * math.pi / 180;
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(p1.latitude * math.pi / 180) *
+            math.cos(p2.latitude * math.pi / 180) *
+            math.sin(dLon / 2) *
+            math.sin(dLon / 2);
+    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    return 6371 * c;
   }
 
   // Geocoded address for center pin
@@ -647,6 +677,7 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
                     onPositionChanged: (pos, hasGesture) {
                       if (hasGesture && pos.center != null) {
                         _center = pos.center!;
+                        if (_isRouteMode) _updateRouteCalculation();
                       }
                     },
                     onMapEvent: (event) {
@@ -659,6 +690,7 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
                           _address = 'جاري تحديد العنوان...';
                         });
                         _scheduleGeocode(newCenter);
+                        if (_isRouteMode) _updateRouteCalculation();
                       }
                     },
                     onTap: (tapPos, point) async {
@@ -685,6 +717,16 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
                       userAgentPackageName: 'com.charity.app',
                       maxNativeZoom: 20,
                     ),
+                    if (_isRouteMode && _originPoint != null)
+                      fmap.PolylineLayer(
+                        polylines: [
+                          fmap.Polyline(
+                            points: [_originPoint!, _center],
+                            color: AppColors.primary,
+                            strokeWidth: 5.0,
+                          ),
+                        ],
+                      ),
                     if (_tappedPoint != null && _showTapCard)
                       fmap.MarkerLayer(
                         markers: [
@@ -704,13 +746,19 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
                     zoom: 14.5,
                   ),
                   mapType: _isSatellite ? gmaps.MapType.hybrid : gmaps.MapType.normal,
-                  myLocationEnabled: false,
+                  trafficEnabled: _showTraffic,
+                  myLocationEnabled: true,
                   myLocationButtonEnabled: false,
                   zoomControlsEnabled: false,
                   compassEnabled: false,
+                  rotateGesturesEnabled: true,
+                  tiltGesturesEnabled: true,
+                  scrollGesturesEnabled: true,
+                  zoomGesturesEnabled: true,
                   onMapCreated: (controller) => _googleMapController = controller,
                   onCameraMove: (position) {
                     _center = LatLng(position.target.latitude, position.target.longitude);
+                    if (_isRouteMode) _updateRouteCalculation();
                   },
                   onCameraIdle: () {
                     setState(() {
@@ -719,8 +767,22 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
                       _address = 'جاري تحديد العنوان...';
                     });
                     _scheduleGeocode(_center);
+                    if (_isRouteMode) _updateRouteCalculation();
                   },
                   onTap: _onMapTap,
+                  polylines: _isRouteMode && _originPoint != null
+                      ? {
+                          gmaps.Polyline(
+                            polylineId: const gmaps.PolylineId('route_line'),
+                            points: [
+                              gmaps.LatLng(_originPoint!.latitude, _originPoint!.longitude),
+                              gmaps.LatLng(_center.latitude, _center.longitude),
+                            ],
+                            color: AppColors.primary,
+                            width: 5,
+                          ),
+                        }
+                      : {},
                   markers: _tappedPoint != null && _showTapCard
                       ? {
                           gmaps.Marker(
@@ -788,7 +850,7 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
           if (!_showSearch)
             Positioned(
               right: 12,
-              bottom: 175,
+              bottom: 195,
               child: Column(
                 children: [
                   _MapButton(
@@ -827,7 +889,7 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
           // ── Attribution صغير ─────────────────────────────────────────
           Positioned(
             left: 4,
-            bottom: 165,
+            bottom: 185,
             child: Container(
               padding:
                   const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -857,8 +919,26 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
               coordinates: _center,
               isLoading: _isGeocoding,
               isDark: isDark,
+              isRouteMode: _isRouteMode,
+              showTraffic: _showTraffic,
+              distanceKm: _distanceKm,
+              etaMinutes: _etaMinutes,
               onManual: _showManualEntry,
               onConfirm: _confirmLocation,
+              onToggleRouteMode: () {
+                setState(() {
+                  _isRouteMode = !_isRouteMode;
+                  if (_isRouteMode && _originPoint == null) {
+                    _originPoint = LatLng(_center.latitude - 0.012, _center.longitude - 0.012);
+                  }
+                  _updateRouteCalculation();
+                });
+              },
+              onToggleTraffic: () {
+                setState(() {
+                  _showTraffic = !_showTraffic;
+                });
+              },
             ),
           ),
         ],

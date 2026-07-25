@@ -7,8 +7,14 @@ class _LocationBottomCard extends StatelessWidget {
   final LatLng coordinates;
   final bool isLoading;
   final bool isDark;
+  final bool isRouteMode;
+  final bool showTraffic;
+  final double distanceKm;
+  final int etaMinutes;
   final VoidCallback onManual;
   final VoidCallback onConfirm;
+  final VoidCallback onToggleRouteMode;
+  final VoidCallback onToggleTraffic;
 
   const _LocationBottomCard({
     required this.governorate,
@@ -17,8 +23,14 @@ class _LocationBottomCard extends StatelessWidget {
     required this.coordinates,
     required this.isLoading,
     required this.isDark,
+    required this.isRouteMode,
+    required this.showTraffic,
+    required this.distanceKm,
+    required this.etaMinutes,
     required this.onManual,
     required this.onConfirm,
+    required this.onToggleRouteMode,
+    required this.onToggleTraffic,
   });
 
   @override
@@ -51,7 +63,183 @@ class _LocationBottomCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
+
+          // ── شريط الخيارات السريعة: تتبع المسار وحركة المرور ──────────────────────────
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                InkWell(
+                  onTap: onToggleRouteMode,
+                  borderRadius: BorderRadius.circular(20),
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: isRouteMode
+                          ? AppColors.primary.withValues(alpha: 0.15)
+                          : (isDark
+                              ? AppColors.cardDark
+                              : AppColors.backgroundLight),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: isRouteMode
+                            ? AppColors.primary
+                            : (isDark
+                                ? AppColors.borderDark
+                                : AppColors.borderLight),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.alt_route_rounded,
+                          size: 14,
+                          color: isRouteMode
+                              ? AppColors.primary
+                              : (isDark
+                                  ? AppColors.textSecondaryDark
+                                  : AppColors.textSecondaryLight),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          isRouteMode ? 'وضع رسم المسار (مفعّل)' : 'رسم المسار المباشر',
+                          style: GoogleFonts.cairo(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: isRouteMode
+                                ? AppColors.primary
+                                : (isDark
+                                    ? AppColors.textPrimaryDark
+                                    : AppColors.textPrimaryLight),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                InkWell(
+                  onTap: onToggleTraffic,
+                  borderRadius: BorderRadius.circular(20),
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: showTraffic
+                          ? AppColors.secondary.withValues(alpha: 0.15)
+                          : (isDark
+                              ? AppColors.cardDark
+                              : AppColors.backgroundLight),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: showTraffic
+                            ? AppColors.secondary
+                            : (isDark
+                                ? AppColors.borderDark
+                                : AppColors.borderLight),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.traffic_rounded,
+                          size: 14,
+                          color: showTraffic
+                              ? AppColors.secondary
+                              : (isDark
+                                  ? AppColors.textSecondaryDark
+                                  : AppColors.textSecondaryLight),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          showTraffic ? 'المرور الحي (مفعّل)' : 'حركة المرور الحية',
+                          style: GoogleFonts.cairo(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: showTraffic
+                                ? AppColors.secondary
+                                : (isDark
+                                    ? AppColors.textPrimaryDark
+                                    : AppColors.textPrimaryLight),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // ── شريط مؤشرات المسافة والوقت المتبقي عند تفعيل وضع المسار ────────────────
+          if (isRouteMode && distanceKm > 0) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.primary.withValues(alpha: 0.12),
+                    AppColors.secondary.withValues(alpha: 0.08),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: AppColors.primary.withValues(alpha: 0.25),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.timer_outlined,
+                          size: 16, color: AppColors.primary),
+                      const SizedBox(width: 6),
+                      Text(
+                        'الوقت المتوقع: $etaMinutes دقيقة',
+                        style: GoogleFonts.cairo(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: isDark
+                              ? AppColors.textPrimaryDark
+                              : AppColors.textPrimaryLight,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Container(
+                      width: 1,
+                      height: 16,
+                      color: isDark
+                          ? AppColors.borderDark
+                          : AppColors.borderLight),
+                  Row(
+                    children: [
+                      const Icon(Icons.navigation_outlined,
+                          size: 16, color: AppColors.secondary),
+                      const SizedBox(width: 6),
+                      Text(
+                        'المسافة: $distanceKm كم',
+                        style: GoogleFonts.cairo(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: isDark
+                              ? AppColors.textPrimaryDark
+                              : AppColors.textPrimaryLight,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
 
           // صف المعلومات
           Row(
@@ -60,11 +248,16 @@ class _LocationBottomCard extends StatelessWidget {
                 width: 46,
                 height: 46,
                 decoration: BoxDecoration(
-                  gradient: AppColors.gradientPurple,
+                  gradient: isRouteMode
+                      ? AppColors.gradientGreen
+                      : AppColors.gradientPurple,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.location_on_rounded,
-                    color: Colors.white, size: 22),
+                child: Icon(
+                  isRouteMode ? Icons.near_me_rounded : Icons.location_on_rounded,
+                  color: Colors.white,
+                  size: 22,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
