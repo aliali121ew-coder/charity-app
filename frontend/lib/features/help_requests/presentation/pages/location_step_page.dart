@@ -11,6 +11,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
 import 'package:charity_app/core/theme/app_colors.dart';
 import 'package:charity_app/features/help_requests/providers/location_provider.dart';
 
@@ -67,6 +68,8 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
   LatLng? _originPoint;
   double _distanceKm = 0.0;
   int _etaMinutes = 0;
+  List<LatLng> _routePoints = [];
+  bool _isLoadingRoute = false;
 
   bool get _isDesktop {
     if (kIsWeb) return false;
@@ -114,6 +117,49 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
       );
     } else {
       _googleMapController?.animateCamera(gmaps.CameraUpdate.zoomOut());
+    }
+  }
+
+  Future<void> _fetchRealRoadRoute(LatLng origin, LatLng destination) async {
+    setState(() => _isLoadingRoute = true);
+    try {
+      final url = Uri.parse(
+        'https://router.project-osrm.org/route/v1/driving/'
+        '${origin.longitude},${origin.latitude};'
+        '${destination.longitude},${destination.latitude}'
+        '?overview=full&geometries=geojson',
+      );
+      final response = await http.get(url).timeout(const Duration(seconds: 8));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['routes'] != null && (data['routes'] as List).isNotEmpty) {
+          final route = data['routes'][0];
+          final double distanceMeters = (route['distance'] as num).toDouble();
+          final double durationSeconds = (route['duration'] as num).toDouble();
+
+          final coordinates = (route['geometry']['coordinates'] as List)
+              .map((c) => LatLng((c[1] as num).toDouble(), (c[0] as num).toDouble()))
+              .toList();
+
+          if (mounted) {
+            setState(() {
+              _routePoints = coordinates;
+              _distanceKm = double.parse((distanceMeters / 1000).toStringAsFixed(1));
+              _etaMinutes = math.max(1, (durationSeconds / 60).round());
+              _isLoadingRoute = false;
+            });
+          }
+          return;
+        }
+      }
+    } catch (_) {}
+
+    if (mounted) {
+      setState(() {
+        _routePoints = [origin, destination];
+        _updateRouteCalculation();
+        _isLoadingRoute = false;
+      });
     }
   }
 
@@ -677,7 +723,9 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
                     onPositionChanged: (pos, hasGesture) {
                       if (hasGesture && pos.center != null) {
                         _center = pos.center!;
-                        if (_isRouteMode) _updateRouteCalculation();
+                        if (_isRouteMode && _originPoint != null) {
+                          _fetchRealRoadRoute(_originPoint!, _center);
+                        }
                       }
                     },
                     onMapEvent: (event) {
@@ -690,7 +738,9 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
                           _address = 'جاري تحديد العنوان...';
                         });
                         _scheduleGeocode(newCenter);
-                        if (_isRouteMode) _updateRouteCalculation();
+                        if (_isRouteMode && _originPoint != null) {
+                          _fetchRealRoadRoute(_originPoint!, newCenter);
+                        }
                       }
                     },
                     onTap: (tapPos, point) async {
@@ -717,13 +767,45 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
                       userAgentPackageName: 'com.charity.app',
                       maxNativeZoom: 20,
                     ),
-                    if (_isRouteMode && _originPoint != null)
+                    if (_isRouteMode && _routePoints.isNotEmpty)
                       fmap.PolylineLayer(
                         polylines: [
                           fmap.Polyline(
-                            points: [_originPoint!, _center],
-                            color: AppColors.primary,
-                            strokeWidth: 5.0,
+                            points: _routePoints,
+                            color: const Color(0xFF2563EB),
+                            strokeWidth: 6.0,
+                          ),
+                        ],
+                      ),
+                    if (_isRouteMode)
+                      fmap.MarkerLayer(
+                        markers: [
+                          if (_originPoint != null)
+                            fmap.Marker(
+                              point: _originPoint!,
+                              width: 40,
+                              height: 40,
+                              child: Container(
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF10B981),
+                                  shape: BoxShape.circle,
+                                  boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 6)],
+                                ),
+                                child: const Icon(Icons.navigation_rounded, color: Colors.white, size: 22),
+                              ),
+                            ),
+                          fmap.Marker(
+                            point: _center,
+                            width: 40,
+                            height: 40,
+                            child: Container(
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFEF4444),
+                                shape: BoxShape.circle,
+                                boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 6)],
+                              ),
+                              child: const Icon(Icons.location_on_rounded, color: Colors.white, size: 22),
+                            ),
                           ),
                         ],
                       ),
@@ -758,7 +840,9 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
                   onMapCreated: (controller) => _googleMapController = controller,
                   onCameraMove: (position) {
                     _center = LatLng(position.target.latitude, position.target.longitude);
-                    if (_isRouteMode) _updateRouteCalculation();
+                    if (_isRouteMode && _originPoint != null) {
+                      _fetchRealRoadRoute(_originPoint!, _center);
+                    }
                   },
                   onCameraIdle: () {
                     setState(() {
@@ -767,34 +851,52 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
                       _address = 'جاري تحديد العنوان...';
                     });
                     _scheduleGeocode(_center);
-                    if (_isRouteMode) _updateRouteCalculation();
+                    if (_isRouteMode && _originPoint != null) {
+                      _fetchRealRoadRoute(_originPoint!, _center);
+                    }
                   },
                   onTap: _onMapTap,
-                  polylines: _isRouteMode && _originPoint != null
+                  polylines: _isRouteMode && _routePoints.isNotEmpty
                       ? {
                           gmaps.Polyline(
-                            polylineId: const gmaps.PolylineId('route_line'),
-                            points: [
-                              gmaps.LatLng(_originPoint!.latitude, _originPoint!.longitude),
-                              gmaps.LatLng(_center.latitude, _center.longitude),
-                            ],
-                            color: AppColors.primary,
-                            width: 5,
+                            polylineId: const gmaps.PolylineId('osrm_real_road_route'),
+                            points: _routePoints
+                                .map((p) => gmaps.LatLng(p.latitude, p.longitude))
+                                .toList(),
+                            color: const Color(0xFF2563EB),
+                            width: 6,
                           ),
                         }
                       : {},
-                  markers: _tappedPoint != null && _showTapCard
-                      ? {
-                          gmaps.Marker(
-                            markerId: const gmaps.MarkerId('tapped_marker'),
-                            position: gmaps.LatLng(_tappedPoint!.latitude, _tappedPoint!.longitude),
-                          ),
-                        }
-                      : {},
+                  markers: {
+                    if (_isRouteMode && _originPoint != null)
+                      gmaps.Marker(
+                        markerId: const gmaps.MarkerId('origin_marker'),
+                        position: gmaps.LatLng(_originPoint!.latitude, _originPoint!.longitude),
+                        infoWindow: const gmaps.InfoWindow(title: 'من: موقع المندوب'),
+                        icon: gmaps.BitmapDescriptor.defaultMarkerWithHue(
+                          gmaps.BitmapDescriptor.hueGreen,
+                        ),
+                      ),
+                    if (_isRouteMode)
+                      gmaps.Marker(
+                        markerId: const gmaps.MarkerId('destination_marker'),
+                        position: gmaps.LatLng(_center.latitude, _center.longitude),
+                        infoWindow: const gmaps.InfoWindow(title: 'إلى: موقع المستفيد'),
+                        icon: gmaps.BitmapDescriptor.defaultMarkerWithHue(
+                          gmaps.BitmapDescriptor.hueRed,
+                        ),
+                      ),
+                    if (_tappedPoint != null && _showTapCard)
+                      gmaps.Marker(
+                        markerId: const gmaps.MarkerId('tapped_marker'),
+                        position: gmaps.LatLng(_tappedPoint!.latitude, _tappedPoint!.longitude),
+                      ),
+                  },
                 ),
 
           // ── Pin المركز ───────────────────────────────────────────────
-          const Center(child: _CenterPin()),
+          if (!_isRouteMode) const Center(child: _CenterPin()),
 
           // ── Step badge ───────────────────────────────────────────────
           Positioned(
@@ -803,6 +905,121 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
             right: 0,
             child: Center(child: _StepBadge(isDark: isDark)),
           ),
+
+          // ── شريط تفاصيل مسار المندوب العائم (من وإلى) ──────────────────────────
+          if (_isRouteMode && !_showSearch)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 104,
+              left: 14,
+              right: 14,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xF0111827) : const Color(0xF7FFFFFF),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.15),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                  border: Border.all(
+                    color: const Color(0xFF2563EB).withValues(alpha: 0.4),
+                    width: 1.5,
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(5),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF10B981),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.navigation_rounded, size: 12, color: Colors.white),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'من: موقع المندوب (نقطة الانطلاق)',
+                            style: GoogleFonts.cairo(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(5),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFEF4444),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.location_on_rounded, size: 12, color: Colors.white),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'إلى: $_governorate — $_area ($_address)',
+                            style: GoogleFonts.cairo(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 14),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.directions_car_rounded, size: 16, color: Color(0xFF2563EB)),
+                            const SizedBox(width: 6),
+                            Text(
+                              _isLoadingRoute ? 'جاري رسم المسار...' : '$_etaMinutes دقيقة ($_distanceKm كم)',
+                              style: GoogleFonts.cairo(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                                color: const Color(0xFF2563EB),
+                              ),
+                            ),
+                          ],
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2563EB).withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            'مسار قيادة حقيقي عبر الشوارع',
+                            style: GoogleFonts.cairo(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFF2563EB),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
 
           // ── شريط البحث ───────────────────────────────────────────────
           if (_showSearch)
@@ -850,7 +1067,7 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
           if (!_showSearch)
             Positioned(
               right: 12,
-              bottom: 195,
+              bottom: 215,
               child: Column(
                 children: [
                   _MapButton(
@@ -889,7 +1106,7 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
           // ── Attribution صغير ─────────────────────────────────────────
           Positioned(
             left: 4,
-            bottom: 185,
+            bottom: 205,
             child: Container(
               padding:
                   const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -928,10 +1145,10 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
               onToggleRouteMode: () {
                 setState(() {
                   _isRouteMode = !_isRouteMode;
-                  if (_isRouteMode && _originPoint == null) {
-                    _originPoint = LatLng(_center.latitude - 0.012, _center.longitude - 0.012);
+                  if (_isRouteMode) {
+                    _originPoint ??= LatLng(_center.latitude - 0.018, _center.longitude - 0.018);
+                    _fetchRealRoadRoute(_originPoint!, _center);
                   }
-                  _updateRouteCalculation();
                 });
               },
               onToggleTraffic: () {
