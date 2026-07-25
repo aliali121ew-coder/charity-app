@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_map/flutter_map.dart' as fmap;
 import 'package:google_maps_flutter/google_maps_flutter.dart' as gmaps;
 import 'package:latlong2/latlong.dart';
 import 'package:go_router/go_router.dart';
@@ -54,8 +56,58 @@ class LocationStepPage extends ConsumerStatefulWidget {
 
 class _LocationStepPageState extends ConsumerState<LocationStepPage>
     with TickerProviderStateMixin {
+  final _flutterMapController = fmap.MapController();
   gmaps.GoogleMapController? _googleMapController;
   LatLng _center = _kDefaultCenter;
+
+  bool get _isDesktop {
+    if (kIsWeb) return false;
+    return defaultTargetPlatform == TargetPlatform.windows ||
+        defaultTargetPlatform == TargetPlatform.macOS ||
+        defaultTargetPlatform == TargetPlatform.linux;
+  }
+
+  String get _googleTileUrl {
+    if (_isSatellite) {
+      return 'https://{s}.google.com/vt/lyrs=y&hl=ar&x={x}&y={y}&z={z}';
+    }
+    return 'https://{s}.google.com/vt/lyrs=m&hl=ar&x={x}&y={y}&z={z}';
+  }
+
+  void _moveMapTo(LatLng point, {double zoom = 16}) {
+    if (_isDesktop) {
+      _flutterMapController.move(point, zoom);
+    } else {
+      _googleMapController?.animateCamera(
+        gmaps.CameraUpdate.newLatLngZoom(
+          gmaps.LatLng(point.latitude, point.longitude),
+          zoom,
+        ),
+      );
+    }
+  }
+
+  void _zoomIn() {
+    if (_isDesktop) {
+      _flutterMapController.move(
+        _flutterMapController.camera.center,
+        _flutterMapController.camera.zoom + 1,
+      );
+    } else {
+      _googleMapController?.animateCamera(gmaps.CameraUpdate.zoomIn());
+    }
+  }
+
+  void _zoomOut() {
+    if (_isDesktop) {
+      _flutterMapController.move(
+        _flutterMapController.camera.center,
+        _flutterMapController.camera.zoom - 1,
+      );
+    } else {
+      _googleMapController?.animateCamera(gmaps.CameraUpdate.zoomOut());
+    }
+  }
 
   // Geocoded address for center pin
   String _governorate = 'بغداد';
@@ -96,6 +148,7 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
     _debounce?.cancel();
     _searchDebounce?.cancel();
     _searchCtrl.dispose();
+    _flutterMapController.dispose();
     _googleMapController?.dispose();
     super.dispose();
   }
@@ -290,12 +343,7 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
 
   void _selectSearchResult(_SearchResult result) {
     final point = LatLng(result.lat, result.lon);
-    _googleMapController?.animateCamera(
-      gmaps.CameraUpdate.newLatLngZoom(
-        gmaps.LatLng(point.latitude, point.longitude),
-        16,
-      ),
-    );
+    _moveMapTo(point, zoom: 16);
     setState(() {
       _center = point;
       _showSearch = false;
@@ -329,12 +377,7 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
 
   void _selectTappedLocation() {
     if (_tappedPoint == null) return;
-    _googleMapController?.animateCamera(
-      gmaps.CameraUpdate.newLatLngZoom(
-        gmaps.LatLng(_tappedPoint!.latitude, _tappedPoint!.longitude),
-        16,
-      ),
-    );
+    _moveMapTo(_tappedPoint!, zoom: 16);
     setState(() {
       _showTapCard = false;
       _governorate = _tapGov.isNotEmpty ? _tapGov : _governorate;
@@ -394,12 +437,7 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
     final loc = locState.location;
     if (loc != null && loc.latitude != null && loc.longitude != null) {
       final realPoint = LatLng(loc.latitude!, loc.longitude!);
-      _googleMapController?.animateCamera(
-        gmaps.CameraUpdate.newLatLngZoom(
-          gmaps.LatLng(realPoint.latitude, realPoint.longitude),
-          16,
-        ),
-      );
+      _moveMapTo(realPoint, zoom: 16);
       setState(() {
         _center = realPoint;
         _isGeocoding = true;
@@ -598,38 +636,100 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
       body: Stack(
         children: [
           // ── الخريطة ──────────────────────────────────────────────────
-          gmaps.GoogleMap(
-            initialCameraPosition: gmaps.CameraPosition(
-              target: gmaps.LatLng(_kDefaultCenter.latitude, _kDefaultCenter.longitude),
-              zoom: 14.5,
-            ),
-            mapType: _isSatellite ? gmaps.MapType.hybrid : gmaps.MapType.normal,
-            myLocationEnabled: false,
-            myLocationButtonEnabled: false,
-            zoomControlsEnabled: false,
-            compassEnabled: false,
-            onMapCreated: (controller) => _googleMapController = controller,
-            onCameraMove: (position) {
-              _center = LatLng(position.target.latitude, position.target.longitude);
-            },
-            onCameraIdle: () {
-              setState(() {
-                _showTapCard = false;
-                _isGeocoding = true;
-                _address = 'جاري تحديد العنوان...';
-              });
-              _scheduleGeocode(_center);
-            },
-            onTap: _onMapTap,
-            markers: _tappedPoint != null && _showTapCard
-                ? {
-                    gmaps.Marker(
-                      markerId: const gmaps.MarkerId('tapped_marker'),
-                      position: gmaps.LatLng(_tappedPoint!.latitude, _tappedPoint!.longitude),
+          _isDesktop
+              ? fmap.FlutterMap(
+                  mapController: _flutterMapController,
+                  options: fmap.MapOptions(
+                    initialCenter: _kDefaultCenter,
+                    initialZoom: 14.5,
+                    minZoom: 4,
+                    maxZoom: 20,
+                    onPositionChanged: (pos, hasGesture) {
+                      if (hasGesture && pos.center != null) {
+                        _center = pos.center!;
+                      }
+                    },
+                    onMapEvent: (event) {
+                      if (event is fmap.MapEventMoveEnd) {
+                        final newCenter = _flutterMapController.camera.center;
+                        setState(() {
+                          _center = newCenter;
+                          _showTapCard = false;
+                          _isGeocoding = true;
+                          _address = 'جاري تحديد العنوان...';
+                        });
+                        _scheduleGeocode(newCenter);
+                      }
+                    },
+                    onTap: (tapPos, point) async {
+                      if (_showSearch) {
+                        setState(() => _showSearch = false);
+                        return;
+                      }
+                      setState(() {
+                        _tappedPoint = point;
+                        _showTapCard = true;
+                        _isTapGeocoding = true;
+                        _tapPlaceType = '';
+                        _tapAddress = 'جاري تحديد العنوان...';
+                        _tapGov = '';
+                        _tapArea = '';
+                      });
+                      await _reverseGeocode(point, isCenter: false);
+                    },
+                  ),
+                  children: [
+                    fmap.TileLayer(
+                      urlTemplate: _googleTileUrl,
+                      subdomains: const ['mt0', 'mt1', 'mt2', 'mt3'],
+                      userAgentPackageName: 'com.charity.app',
+                      maxNativeZoom: 20,
                     ),
-                  }
-                : {},
-          ),
+                    if (_tappedPoint != null && _showTapCard)
+                      fmap.MarkerLayer(
+                        markers: [
+                          fmap.Marker(
+                            point: _tappedPoint!,
+                            width: 32,
+                            height: 40,
+                            child: const _TapMarker(),
+                          ),
+                        ],
+                      ),
+                  ],
+                )
+              : gmaps.GoogleMap(
+                  initialCameraPosition: gmaps.CameraPosition(
+                    target: gmaps.LatLng(_kDefaultCenter.latitude, _kDefaultCenter.longitude),
+                    zoom: 14.5,
+                  ),
+                  mapType: _isSatellite ? gmaps.MapType.hybrid : gmaps.MapType.normal,
+                  myLocationEnabled: false,
+                  myLocationButtonEnabled: false,
+                  zoomControlsEnabled: false,
+                  compassEnabled: false,
+                  onMapCreated: (controller) => _googleMapController = controller,
+                  onCameraMove: (position) {
+                    _center = LatLng(position.target.latitude, position.target.longitude);
+                  },
+                  onCameraIdle: () {
+                    setState(() {
+                      _showTapCard = false;
+                      _isGeocoding = true;
+                      _address = 'جاري تحديد العنوان...';
+                    });
+                    _scheduleGeocode(_center);
+                  },
+                  onTap: _onMapTap,
+                  markers: _tappedPoint != null && _showTapCard
+                      ? {
+                          gmaps.Marker(
+                            markerId: const gmaps.MarkerId('tapped_marker'),
+                            position: gmaps.LatLng(_tappedPoint!.latitude, _tappedPoint!.longitude),
+                          ),
+                        }
+                      : {},
+                ),
 
           // ── Pin المركز ───────────────────────────────────────────────
           const Center(child: _CenterPin()),
@@ -694,17 +794,13 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
                   _MapButton(
                     icon: Icons.add,
                     isDark: isDark,
-                    onTap: () => _googleMapController?.animateCamera(
-                      gmaps.CameraUpdate.zoomIn(),
-                    ),
+                    onTap: _zoomIn,
                   ),
                   const SizedBox(height: 4),
                   _MapButton(
                     icon: Icons.remove,
                     isDark: isDark,
-                    onTap: () => _googleMapController?.animateCamera(
-                      gmaps.CameraUpdate.zoomOut(),
-                    ),
+                    onTap: _zoomOut,
                   ),
                   const SizedBox(height: 8),
                   _MapButton(
