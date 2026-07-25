@@ -179,7 +179,7 @@ class _LocationBottomCard extends StatelessWidget {
           // ── شريط مؤشرات المسافة والوقت المتبقي عند تفعيل وضع المسار ────────────────
           if (isRouteMode && distanceKm > 0) ...[
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
@@ -193,24 +193,30 @@ class _LocationBottomCard extends StatelessWidget {
                 ),
               ),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.timer_outlined,
-                          size: 16, color: AppColors.primary),
-                      const SizedBox(width: 6),
-                      Text(
-                        'الوقت المتوقع: $etaMinutes دقيقة',
-                        style: GoogleFonts.cairo(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: isDark
-                              ? AppColors.textPrimaryDark
-                              : AppColors.textPrimaryLight,
+                  Expanded(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.timer_outlined,
+                            size: 15, color: AppColors.primary),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            'الوقت: $etaMinutes دقيقة',
+                            style: GoogleFonts.cairo(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: isDark
+                                  ? AppColors.textPrimaryDark
+                                  : AppColors.textPrimaryLight,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                   Container(
                       width: 1,
@@ -218,22 +224,29 @@ class _LocationBottomCard extends StatelessWidget {
                       color: isDark
                           ? AppColors.borderDark
                           : AppColors.borderLight),
-                  Row(
-                    children: [
-                      const Icon(Icons.navigation_outlined,
-                          size: 16, color: AppColors.secondary),
-                      const SizedBox(width: 6),
-                      Text(
-                        'المسافة: $distanceKm كم',
-                        style: GoogleFonts.cairo(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: isDark
-                              ? AppColors.textPrimaryDark
-                              : AppColors.textPrimaryLight,
+                  Expanded(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.navigation_outlined,
+                            size: 15, color: AppColors.secondary),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            'المسافة: $distanceKm كم',
+                            style: GoogleFonts.cairo(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: isDark
+                                  ? AppColors.textPrimaryDark
+                                  : AppColors.textPrimaryLight,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
               ),

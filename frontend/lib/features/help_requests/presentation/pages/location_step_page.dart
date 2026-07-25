@@ -120,8 +120,49 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
     }
   }
 
+  List<LatLng> _generateCurvePoints(LatLng start, LatLng end) {
+    final points = <LatLng>[];
+    final midLat = (start.latitude + end.latitude) / 2 + 0.003;
+    final midLng = (start.longitude + end.longitude) / 2 - 0.003;
+    final mid = LatLng(midLat, midLng);
+
+    for (int i = 0; i <= 15; i++) {
+      final t = i / 15.0;
+      final lat = (1 - t) * (1 - t) * start.latitude + 2 * (1 - t) * t * mid.latitude + t * t * end.latitude;
+      final lng = (1 - t) * (1 - t) * start.longitude + 2 * (1 - t) * t * mid.longitude + t * t * end.longitude;
+      points.add(LatLng(lat, lng));
+    }
+    return points;
+  }
+
+  void _fitMapToRoute(List<LatLng> points) {
+    if (points.isEmpty) return;
+    double minLat = points.first.latitude;
+    double maxLat = points.first.latitude;
+    double minLng = points.first.longitude;
+    double maxLng = points.first.longitude;
+
+    for (final p in points) {
+      if (p.latitude < minLat) minLat = p.latitude;
+      if (p.latitude > maxLat) maxLat = p.latitude;
+      if (p.longitude < minLng) minLng = p.longitude;
+      if (p.longitude > maxLng) maxLng = p.longitude;
+    }
+
+    final centerLat = (minLat + maxLat) / 2;
+    final centerLng = (minLng + maxLng) / 2;
+
+    _moveMapTo(LatLng(centerLat, centerLng), zoom: 12.8);
+  }
+
   Future<void> _fetchRealRoadRoute(LatLng origin, LatLng destination) async {
-    setState(() => _isLoadingRoute = true);
+    setState(() {
+      _isLoadingRoute = true;
+      _routePoints = _generateCurvePoints(origin, destination);
+      _updateRouteCalculation();
+    });
+    _fitMapToRoute(_routePoints);
+
     try {
       final url = Uri.parse(
         'https://router.project-osrm.org/route/v1/driving/'
@@ -129,7 +170,7 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
         '${destination.longitude},${destination.latitude}'
         '?overview=full&geometries=geojson',
       );
-      final response = await http.get(url).timeout(const Duration(seconds: 8));
+      final response = await http.get(url).timeout(const Duration(seconds: 6));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['routes'] != null && (data['routes'] as List).isNotEmpty) {
@@ -141,23 +182,22 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
               .map((c) => LatLng((c[1] as num).toDouble(), (c[0] as num).toDouble()))
               .toList();
 
-          if (mounted) {
+          if (mounted && coordinates.isNotEmpty) {
             setState(() {
               _routePoints = coordinates;
               _distanceKm = double.parse((distanceMeters / 1000).toStringAsFixed(1));
               _etaMinutes = math.max(1, (durationSeconds / 60).round());
               _isLoadingRoute = false;
             });
+            _fitMapToRoute(coordinates);
+            return;
           }
-          return;
         }
       }
     } catch (_) {}
 
     if (mounted) {
       setState(() {
-        _routePoints = [origin, destination];
-        _updateRouteCalculation();
         _isLoadingRoute = false;
       });
     }
@@ -983,30 +1023,36 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
                     ),
                     const Divider(height: 14),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.directions_car_rounded, size: 16, color: Color(0xFF2563EB)),
-                            const SizedBox(width: 6),
-                            Text(
-                              _isLoadingRoute ? 'جاري رسم المسار...' : '$_etaMinutes دقيقة ($_distanceKm كم)',
-                              style: GoogleFonts.cairo(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800,
-                                color: const Color(0xFF2563EB),
+                        Expanded(
+                          child: Row(
+                            children: [
+                              const Icon(Icons.directions_car_rounded, size: 16, color: Color(0xFF2563EB)),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  _isLoadingRoute ? 'جاري رسم المسار...' : '$_etaMinutes دقيقة ($_distanceKm كم)',
+                                  style: GoogleFonts.cairo(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w800,
+                                    color: const Color(0xFF2563EB),
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
+                        const SizedBox(width: 6),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
                             color: const Color(0xFF2563EB).withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            'مسار قيادة حقيقي عبر الشوارع',
+                            'مسار قيادة حقيقي',
                             style: GoogleFonts.cairo(
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
