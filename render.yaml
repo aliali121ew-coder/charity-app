@@ -1,0 +1,44 @@
+services:
+  - type: web
+    name: charity-backend
+    env: dart
+    rootDir: backend
+    plan: free
+    buildCommand: dart pub get
+    startCommand: dart run bin/server.dart
+    envVars:
+      - key: PORT
+        value: 8080
+      # REQUIRED in production so redirects/webhooks use your public URL.
+      - key: PUBLIC_BASE_URL
+        sync: false
+      # Database (Render will inject DATABASE_URL automatically)
+      - key: DATABASE_URL
+        fromDatabase:
+          name: charity-db
+          property: connectionString
+      # MyFatoorah
+      - key: MYFATOORAH_API_KEY
+        sync: false
+      - key: MYFATOORAH_BASE_URL
+        value: https://apitest.myfatoorah.com
+      - key: MYFATOORAH_WEBHOOK_SECRET
+        sync: false
+      # ZainCash
+      - key: ZAINCASH_PRODUCTION
+        value: "false"
+      - key: ZAINCASH_MSISDN
+        sync: false
+      - key: ZAINCASH_MERCHANT_ID
+        sync: false
+      - key: ZAINCASH_SECRET
+        sync: false
+      - key: ZAINCASH_SERVICE_TYPE
+        value: Charity App
+      - key: ZAINCASH_LANG
+        value: ar
+
+databases:
+  - name: charity-db
+    plan: free
+
