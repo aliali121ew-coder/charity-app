@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_map/flutter_map.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart' as gmaps;
 import 'package:latlong2/latlong.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -54,7 +54,7 @@ class LocationStepPage extends ConsumerStatefulWidget {
 
 class _LocationStepPageState extends ConsumerState<LocationStepPage>
     with TickerProviderStateMixin {
-  final _mapController = MapController();
+  gmaps.GoogleMapController? _googleMapController;
   LatLng _center = _kDefaultCenter;
 
   // Geocoded address for center pin
@@ -96,18 +96,10 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
     _debounce?.cancel();
     _searchDebounce?.cancel();
     _searchCtrl.dispose();
-    _mapController.dispose();
+    _googleMapController?.dispose();
     super.dispose();
   }
 
-  // ── tile URL حسب الوضع ────────────────────────────────────────────────────
-
-  String get _tileUrl {
-    if (_isSatellite) {
-      return 'https://{s}.google.com/vt/lyrs=y&hl=ar&x={x}&y={y}&z={z}';
-    }
-    return 'https://{s}.google.com/vt/lyrs=m&hl=ar&x={x}&y={y}&z={z}';
-  }
 
   // ── Reverse Geocoding (Nominatim) ─────────────────────────────────────────
 
@@ -298,7 +290,12 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
 
   void _selectSearchResult(_SearchResult result) {
     final point = LatLng(result.lat, result.lon);
-    _mapController.move(point, 16);
+    _googleMapController?.animateCamera(
+      gmaps.CameraUpdate.newLatLngZoom(
+        gmaps.LatLng(point.latitude, point.longitude),
+        16,
+      ),
+    );
     setState(() {
       _center = point;
       _showSearch = false;
@@ -312,26 +309,14 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
 
   // ── أحداث الخريطة ────────────────────────────────────────────────────────
 
-  void _onMapEvent(MapEvent event) {
-    if (event is MapEventMoveEnd) {
-      final newCenter = _mapController.camera.center;
-      setState(() {
-        _center = newCenter;
-        _showTapCard = false;
-        _isGeocoding = true;
-        _address = 'جاري تحديد العنوان...';
-      });
-      _scheduleGeocode(newCenter);
-    }
-  }
-
-  void _onMapTap(TapPosition tapPosition, LatLng latlng) async {
+  void _onMapTap(gmaps.LatLng latlng) async {
+    final point = LatLng(latlng.latitude, latlng.longitude);
     if (_showSearch) {
       setState(() => _showSearch = false);
       return;
     }
     setState(() {
-      _tappedPoint = latlng;
+      _tappedPoint = point;
       _showTapCard = true;
       _isTapGeocoding = true;
       _tapPlaceType = '';
@@ -339,17 +324,22 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
       _tapGov = '';
       _tapArea = '';
     });
-    await _reverseGeocode(latlng, isCenter: false);
+    await _reverseGeocode(point, isCenter: false);
   }
 
   void _selectTappedLocation() {
     if (_tappedPoint == null) return;
-    _mapController.move(_tappedPoint!, _mapController.camera.zoom);
+    _googleMapController?.animateCamera(
+      gmaps.CameraUpdate.newLatLngZoom(
+        gmaps.LatLng(_tappedPoint!.latitude, _tappedPoint!.longitude),
+        16,
+      ),
+    );
     setState(() {
       _showTapCard = false;
       _governorate = _tapGov.isNotEmpty ? _tapGov : _governorate;
       _area = _tapArea.isNotEmpty ? _tapArea : _area;
-      _address = _tapAddress.isNotEmpty ? _tapAddress : _address;
+      _address = _tapAddress.isNotEmpty ? _tapAddress : _tapAddress;
       _center = _tappedPoint!;
     });
   }
@@ -357,7 +347,6 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
   // ── GPS ────────────────────────────────────────────────────────────────────
 
   Future<void> _detectMyLocation() async {
-    // تحقق من الإذن أولاً — إذا مرفوض اعرض Dialog
     final permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       final proceed = await _showLocationRationaleDialog();
@@ -380,7 +369,6 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
     final locState = ref.read(locationProvider);
 
     if (locState.error != null) {
-      // إذا كان الرفض نهائياً بعد المحاولة
       if (locState.error!.contains('نهائياً')) {
         _showOpenSettingsDialog();
       } else {
@@ -406,7 +394,12 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
     final loc = locState.location;
     if (loc != null && loc.latitude != null && loc.longitude != null) {
       final realPoint = LatLng(loc.latitude!, loc.longitude!);
-      _mapController.move(realPoint, 16);
+      _googleMapController?.animateCamera(
+        gmaps.CameraUpdate.newLatLngZoom(
+          gmaps.LatLng(realPoint.latitude, realPoint.longitude),
+          16,
+        ),
+      );
       setState(() {
         _center = realPoint;
         _isGeocoding = true;
@@ -428,64 +421,56 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
               title: Row(
                 children: [
                   Container(
-                    width: 36,
-                    height: 36,
+                    padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      gradient: AppColors.gradientPurple,
-                      borderRadius: BorderRadius.circular(10),
+                      color: AppColors.primary.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
                     ),
                     child: const Icon(Icons.location_on_rounded,
-                        color: Colors.white, size: 20),
+                        color: AppColors.primary, size: 24),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 12),
                   Text(
-                    'تفعيل الموقع',
+                    'تحديد الموقع الدقيق',
                     style: GoogleFonts.cairo(
                       fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: isDark
-                          ? AppColors.textPrimaryDark
-                          : AppColors.textPrimaryLight,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : AppColors.textPrimaryLight,
                     ),
                   ),
                 ],
               ),
               content: Text(
-                'نحتاج إلى موقعك الجغرافي لتحديد المنطقة التي تحتاج المساعدة منها بدقة.\n\nلن يتم مشاركة موقعك مع أي طرف خارجي.',
+                'نحتاج إذن الوصول للموقع لتحديد عنوان طلب المساعدة بدقة عالية وتسهيل الوصول إليك.',
                 style: GoogleFonts.cairo(
                   fontSize: 13,
-                  height: 1.7,
-                  color: isDark
-                      ? AppColors.textSecondaryDark
-                      : AppColors.textSecondaryLight,
+                  color: isDark ? Colors.white70 : AppColors.textSecondaryLight,
+                  height: 1.5,
                 ),
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  child: Text('إلغاء',
-                      style: GoogleFonts.cairo(
-                          color: isDark
-                              ? AppColors.textSecondaryDark
-                              : AppColors.textSecondaryLight)),
-                ),
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: AppColors.gradientPurple,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: TextButton(
-                    onPressed: () => Navigator.pop(ctx, true),
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 18, vertical: 8),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: Text(
+                    'إلغاء',
+                    style: GoogleFonts.cairo(
+                      color: isDark ? Colors.white38 : Colors.black45,
                     ),
-                    child: Text('السماح',
-                        style: GoogleFonts.cairo(
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white)),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                  ),
+                  child: Text(
+                    'موافق',
+                    style: GoogleFonts.cairo(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ],
@@ -496,80 +481,61 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
   }
 
   void _showOpenSettingsDialog() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: isDark ? AppColors.cardDark : Colors.white,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: const Color(0xFFEF4444).withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(Icons.location_off_rounded,
-                  color: Color(0xFFEF4444), size: 20),
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return AlertDialog(
+          backgroundColor: isDark ? AppColors.cardDark : Colors.white,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20)),
+          title: Text(
+            'الإذن غير مفعّل',
+            style: GoogleFonts.cairo(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : AppColors.textPrimaryLight,
             ),
-            const SizedBox(width: 10),
-            Text(
-              'إذن الموقع مرفوض',
-              style: GoogleFonts.cairo(
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-                color: isDark
-                    ? AppColors.textPrimaryDark
-                    : AppColors.textPrimaryLight,
-              ),
-            ),
-          ],
-        ),
-        content: Text(
-          'تم رفض إذن الموقع بشكل دائم.\nافتح إعدادات التطبيق وفعّل إذن الموقع يدوياً.',
-          style: GoogleFonts.cairo(
-            fontSize: 13,
-            height: 1.7,
-            color: isDark
-                ? AppColors.textSecondaryDark
-                : AppColors.textSecondaryLight,
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('إلغاء',
+          content: Text(
+            'تم رفض إذن الموقع سابقاً. يرجى تفعيله من إعدادات الجهاز لتحديد موقعك تلقائياً.',
+            style: GoogleFonts.cairo(
+              fontSize: 13,
+              color: isDark ? Colors.white70 : AppColors.textSecondaryLight,
+              height: 1.5,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(
+                'إلغاء',
                 style: GoogleFonts.cairo(
-                    color: isDark
-                        ? AppColors.textSecondaryDark
-                        : AppColors.textSecondaryLight)),
-          ),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: AppColors.gradientPurple,
-              borderRadius: BorderRadius.circular(10),
+                  color: isDark ? Colors.white38 : Colors.black45,
+                ),
+              ),
             ),
-            child: TextButton(
+            ElevatedButton(
               onPressed: () {
-                Navigator.pop(ctx);
+                Navigator.of(ctx).pop();
                 Geolocator.openAppSettings();
               },
-              style: TextButton.styleFrom(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10)),
               ),
-              child: Text('فتح الإعدادات',
-                  style: GoogleFonts.cairo(
-                      fontWeight: FontWeight.w700, color: Colors.white)),
+              child: Text(
+                'فتح الإعدادات',
+                style: GoogleFonts.cairo(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
-          ),
-        ],
-      ),
+          ],
+        );
+      },
     );
   }
 
@@ -632,36 +598,37 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
       body: Stack(
         children: [
           // ── الخريطة ──────────────────────────────────────────────────
-          FlutterMap(
-            mapController: _mapController,
-            options: MapOptions(
-              initialCenter: _kDefaultCenter,
-              initialZoom: 13.5,
-              minZoom: 4,
-              maxZoom: 19,
-              onMapEvent: _onMapEvent,
-              onTap: _onMapTap,
+          gmaps.GoogleMap(
+            initialCameraPosition: gmaps.CameraPosition(
+              target: gmaps.LatLng(_kDefaultCenter.latitude, _kDefaultCenter.longitude),
+              zoom: 14.5,
             ),
-            children: [
-              TileLayer(
-                urlTemplate: _tileUrl,
-                subdomains: const ['mt0', 'mt1', 'mt2', 'mt3'],
-                userAgentPackageName: 'com.charity.app',
-                maxNativeZoom: 20,
-              ),
-              // علامة مكان الـ tap
-              if (_tappedPoint != null && _showTapCard)
-                MarkerLayer(
-                  markers: [
-                    Marker(
-                      point: _tappedPoint!,
-                      width: 32,
-                      height: 40,
-                      child: const _TapMarker(),
+            mapType: _isSatellite ? gmaps.MapType.hybrid : gmaps.MapType.normal,
+            myLocationEnabled: false,
+            myLocationButtonEnabled: false,
+            zoomControlsEnabled: false,
+            compassEnabled: false,
+            onMapCreated: (controller) => _googleMapController = controller,
+            onCameraMove: (position) {
+              _center = LatLng(position.target.latitude, position.target.longitude);
+            },
+            onCameraIdle: () {
+              setState(() {
+                _showTapCard = false;
+                _isGeocoding = true;
+                _address = 'جاري تحديد العنوان...';
+              });
+              _scheduleGeocode(_center);
+            },
+            onTap: _onMapTap,
+            markers: _tappedPoint != null && _showTapCard
+                ? {
+                    gmaps.Marker(
+                      markerId: const gmaps.MarkerId('tapped_marker'),
+                      position: gmaps.LatLng(_tappedPoint!.latitude, _tappedPoint!.longitude),
                     ),
-                  ],
-                ),
-            ],
+                  }
+                : {},
           ),
 
           // ── Pin المركز ───────────────────────────────────────────────
@@ -727,18 +694,16 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
                   _MapButton(
                     icon: Icons.add,
                     isDark: isDark,
-                    onTap: () => _mapController.move(
-                      _mapController.camera.center,
-                      _mapController.camera.zoom + 1,
+                    onTap: () => _googleMapController?.animateCamera(
+                      gmaps.CameraUpdate.zoomIn(),
                     ),
                   ),
                   const SizedBox(height: 4),
                   _MapButton(
                     icon: Icons.remove,
                     isDark: isDark,
-                    onTap: () => _mapController.move(
-                      _mapController.camera.center,
-                      _mapController.camera.zoom - 1,
+                    onTap: () => _googleMapController?.animateCamera(
+                      gmaps.CameraUpdate.zoomOut(),
                     ),
                   ),
                   const SizedBox(height: 8),
