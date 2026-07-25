@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -812,6 +813,11 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
                         polylines: [
                           fmap.Polyline(
                             points: _routePoints,
+                            color: const Color(0x663B82F6),
+                            strokeWidth: 12.0,
+                          ),
+                          fmap.Polyline(
+                            points: _routePoints,
                             color: const Color(0xFF2563EB),
                             strokeWidth: 6.0,
                           ),
@@ -823,26 +829,44 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
                           if (_originPoint != null)
                             fmap.Marker(
                               point: _originPoint!,
-                              width: 40,
-                              height: 40,
+                              width: 44,
+                              height: 44,
                               child: Container(
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFF10B981),
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [Color(0xFF10B981), Color(0xFF059669)],
+                                  ),
                                   shape: BoxShape.circle,
-                                  boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 6)],
+                                  border: Border.all(color: Colors.white, width: 2.5),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFF10B981).withValues(alpha: 0.5),
+                                      blurRadius: 10,
+                                      spreadRadius: 2,
+                                    ),
+                                  ],
                                 ),
                                 child: const Icon(Icons.navigation_rounded, color: Colors.white, size: 22),
                               ),
                             ),
                           fmap.Marker(
                             point: _center,
-                            width: 40,
-                            height: 40,
+                            width: 44,
+                            height: 44,
                             child: Container(
-                              decoration: const BoxDecoration(
-                                color: Color(0xFFEF4444),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
+                                ),
                                 shape: BoxShape.circle,
-                                boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 6)],
+                                border: Border.all(color: Colors.white, width: 2.5),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFFEF4444).withValues(alpha: 0.5),
+                                    blurRadius: 10,
+                                    spreadRadius: 2,
+                                  ),
+                                ],
                               ),
                               child: const Icon(Icons.location_on_rounded, color: Colors.white, size: 22),
                             ),
@@ -899,7 +923,15 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
                   polylines: _isRouteMode && _routePoints.isNotEmpty
                       ? {
                           gmaps.Polyline(
-                            polylineId: const gmaps.PolylineId('osrm_real_road_route'),
+                            polylineId: const gmaps.PolylineId('neon_glow_route'),
+                            points: _routePoints
+                                .map((p) => gmaps.LatLng(p.latitude, p.longitude))
+                                .toList(),
+                            color: const Color(0x663B82F6),
+                            width: 12,
+                          ),
+                          gmaps.Polyline(
+                            polylineId: const gmaps.PolylineId('core_road_route'),
                             points: _routePoints
                                 .map((p) => gmaps.LatLng(p.latitude, p.longitude))
                                 .toList(),
@@ -952,117 +984,162 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
               top: MediaQuery.of(context).padding.top + 104,
               left: 14,
               right: 14,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xF0111827) : const Color(0xF7FFFFFF),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.15),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                  border: Border.all(
-                    color: const Color(0xFF2563EB).withValues(alpha: 0.4),
-                    width: 1.5,
-                  ),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(5),
-                          decoration: const BoxDecoration(
-                            color: Color(0xFF10B981),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.navigation_rounded, size: 12, color: Colors.white),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'من: موقع المندوب (نقطة الانطلاق)',
-                            style: GoogleFonts.cairo(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
-                            ),
-                          ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: BackdropFilter(
+                  filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? const Color(0xC8111827)
+                          : const Color(0xD9FFFFFF),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.12)
+                            : AppColors.primary.withValues(alpha: 0.25),
+                        width: 1.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primary.withValues(alpha: 0.15),
+                          blurRadius: 20,
+                          spreadRadius: 1,
+                          offset: const Offset(0, 6),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 6),
-                    Row(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(5),
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFEF4444),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.location_on_rounded, size: 12, color: Colors.white),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'إلى: $_governorate — $_area ($_address)',
-                            style: GoogleFonts.cairo(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
+                        Row(
+                          children: [
+                            Container(
+                              width: 26,
+                              height: 26,
+                              decoration: const BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [Color(0xFF10B981), Color(0xFF059669)],
+                                ),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.near_me_rounded, size: 13, color: Colors.white),
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Divider(height: 14),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Row(
-                            children: [
-                              const Icon(Icons.directions_car_rounded, size: 16, color: Color(0xFF2563EB)),
-                              const SizedBox(width: 6),
-                              Flexible(
-                                child: Text(
-                                  _isLoadingRoute ? 'جاري رسم المسار...' : '$_etaMinutes دقيقة ($_distanceKm كم)',
-                                  style: GoogleFonts.cairo(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w800,
-                                    color: const Color(0xFF2563EB),
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'من: موقع المندوب (نقطة الانطلاق)',
+                                style: GoogleFonts.cairo(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF2563EB).withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            'مسار قيادة حقيقي',
-                            style: GoogleFonts.cairo(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: const Color(0xFF2563EB),
                             ),
-                          ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Container(
+                              width: 26,
+                              height: 26,
+                              decoration: const BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
+                                ),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.location_on_rounded, size: 13, color: Colors.white),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'إلى: $_governorate — $_area ($_address)',
+                                style: GoogleFonts.cairo(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 8),
+                          child: Divider(height: 1, thickness: 1),
+                        ),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF2563EB).withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: const Color(0xFF2563EB).withValues(alpha: 0.3),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.directions_car_rounded, size: 16, color: Color(0xFF2563EB)),
+                                    const SizedBox(width: 6),
+                                    Flexible(
+                                      child: Text(
+                                        _isLoadingRoute ? 'جاري حساب المسار...' : '$_etaMinutes دقيقة ($_distanceKm كم)',
+                                        style: GoogleFonts.cairo(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w800,
+                                          color: const Color(0xFF2563EB),
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
+                                ),
+                                borderRadius: BorderRadius.circular(10),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF2563EB).withValues(alpha: 0.35),
+                                    blurRadius: 8,
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.verified_rounded, size: 13, color: Colors.white),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'مسار شوارع دقيق',
+                                    style: GoogleFonts.cairo(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
