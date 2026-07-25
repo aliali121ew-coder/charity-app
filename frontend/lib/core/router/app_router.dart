@@ -38,6 +38,10 @@ class AppRoutes {
   static const String donations = '/donations';
   static const String competitions = '/competitions';
   static const String ibadat = '/ibadat';
+  static const String authEmail = '/auth/email';
+  static const String authForgot = '/auth/forgot';
+  static const String feedCreate = '/works/create';
+  static const String feedDetail = '/works/detail';
 }
 
 // ── Router Provider ───────────────────────────────────────────────────────────

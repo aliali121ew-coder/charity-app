@@ -59,8 +59,14 @@ class AuthState {
   final UserModel? user;
   final bool isLoading;
   final String? error;
+  final String? debugVerificationCode;
 
-  const AuthState({this.user, this.isLoading = false, this.error});
+  const AuthState({
+    this.user,
+    this.isLoading = false,
+    this.error,
+    this.debugVerificationCode,
+  });
 
   bool get isAuthenticated => user != null;
 
@@ -68,13 +74,18 @@ class AuthState {
     UserModel? user,
     bool? isLoading,
     String? error,
+    String? debugVerificationCode,
     bool clearUser = false,
     bool clearError = false,
+    bool clearDebugVerificationCode = false,
   }) {
     return AuthState(
       user: clearUser ? null : user ?? this.user,
       isLoading: isLoading ?? this.isLoading,
       error: clearError ? null : error ?? this.error,
+      debugVerificationCode: clearDebugVerificationCode
+          ? null
+          : debugVerificationCode ?? this.debugVerificationCode,
     );
   }
 }
@@ -153,6 +164,96 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
       return false;
     }
+  }
+
+  Future<String?> register({
+    required String name,
+    required String email,
+    String? phone,
+    String? username,
+    required String password,
+  }) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    await Future.delayed(const Duration(seconds: 1));
+
+    final newUser = UserModel.employee(
+      id: 'user_${DateTime.now().millisecondsSinceEpoch}',
+      name: name,
+      email: email,
+    );
+    await _prefs.setString(AppConstants.prefAuthToken, 'mock_token_${newUser.id}');
+    await _prefs.setString(AppConstants.prefUserRole, 'employee');
+    await _prefs.setString(AppConstants.prefUserId, newUser.id);
+
+    state = state.copyWith(user: newUser, isLoading: false);
+    _routerNotifier.notify();
+    return null;
+  }
+
+  Future<String?> sendPasswordResetOtp(String emailOrPhone) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    await Future.delayed(const Duration(seconds: 1));
+    state = state.copyWith(
+      isLoading: false,
+      debugVerificationCode: '123456',
+    );
+    return null;
+  }
+
+  Future<String?> resetPassword({
+    required String emailOrPhone,
+    required String otp,
+    required String newPassword,
+  }) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    await Future.delayed(const Duration(seconds: 1));
+    if (otp != (state.debugVerificationCode ?? '123456')) {
+      state = state.copyWith(isLoading: false, error: 'invalid_code');
+      return 'invalid_code';
+    }
+    state = state.copyWith(
+      isLoading: false,
+      clearDebugVerificationCode: true,
+    );
+    return null;
+  }
+
+  Future<String?> verifyEmail({
+    required String email,
+    required String code,
+  }) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    await Future.delayed(const Duration(seconds: 1));
+    if (code != (state.debugVerificationCode ?? '123456')) {
+      state = state.copyWith(isLoading: false, error: 'invalid_code');
+      return 'invalid_code';
+    }
+    final user = UserModel.employee(
+      id: 'user_${DateTime.now().millisecondsSinceEpoch}',
+      name: 'مستخدم جديد',
+      email: email,
+    );
+    await _prefs.setString(AppConstants.prefAuthToken, 'mock_token_${user.id}');
+    await _prefs.setString(AppConstants.prefUserRole, 'employee');
+    await _prefs.setString(AppConstants.prefUserId, user.id);
+
+    state = state.copyWith(
+      user: user,
+      isLoading: false,
+      clearDebugVerificationCode: true,
+    );
+    _routerNotifier.notify();
+    return null;
+  }
+
+  Future<String?> resendVerification(String email) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    await Future.delayed(const Duration(seconds: 1));
+    state = state.copyWith(
+      isLoading: false,
+      debugVerificationCode: '123456',
+    );
+    return null;
   }
 
   Future<void> logout() async {
