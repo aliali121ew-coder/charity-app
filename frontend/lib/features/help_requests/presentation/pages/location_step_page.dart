@@ -104,13 +104,9 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
 
   String get _tileUrl {
     if (_isSatellite) {
-      return 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+      return 'https://{s}.google.com/vt/lyrs=y&hl=ar&x={x}&y={y}&z={z}';
     }
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    if (isDark) {
-      return 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png';
-    }
-    return 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png';
+    return 'https://{s}.google.com/vt/lyrs=m&hl=ar&x={x}&y={y}&z={z}';
   }
 
   // ── Reverse Geocoding (Nominatim) ─────────────────────────────────────────
@@ -649,10 +645,9 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
             children: [
               TileLayer(
                 urlTemplate: _tileUrl,
-                subdomains:
-                    _isSatellite ? const [] : const ['a', 'b', 'c', 'd'],
+                subdomains: const ['mt0', 'mt1', 'mt2', 'mt3'],
                 userAgentPackageName: 'com.charity.app',
-                maxNativeZoom: 19,
+                maxNativeZoom: 20,
               ),
               // علامة مكان الـ tap
               if (_tappedPoint != null && _showTapCard)
@@ -780,7 +775,7 @@ class _LocationStepPageState extends ConsumerState<LocationStepPage>
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
-                _isSatellite ? '© Esri' : '© CartoDB © OSM',
+                _isSatellite ? '© Google Maps Hybrid' : '© Google Maps',
                 style: const TextStyle(
                     color: Colors.white,
                     fontSize: 9,
