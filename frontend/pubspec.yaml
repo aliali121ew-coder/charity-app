@@ -1,0 +1,83 @@
+name: charity_app
+description: A production-grade charity organization management application.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # State Management
+  flutter_riverpod: ^2.5.1
+
+  # Navigation
+  go_router: ^14.2.0
+
+  # Charts
+  fl_chart: ^0.68.0
+
+  # Fonts & Icons
+  google_fonts: ^6.2.1
+
+  # Storage
+  shared_preferences: ^2.3.2
+
+  # Utilities
+  equatable: ^2.0.5
+  intl: ^0.20.0
+  uuid: ^4.4.2
+
+  # Map & Location
+  flutter_map: ^6.1.0
+  latlong2: ^0.9.0
+  geolocator: ^12.0.0
+  flutter_compass: ^0.8.1
+
+  # Images
+  cached_network_image: ^3.4.1
+
+  # Loading / Shimmer
+  shimmer: ^3.0.0
+
+  # Scroll to a specific item (used by the Quran reader to open at a Juz)
+  scrollable_positioned_list: ^0.3.8
+
+  # Realistic page-curl flip effect for the reading screens
+  page_flip: ^0.2.0
+
+  # Progress indicators
+  percent_indicator: ^4.2.3
+
+  # PDF generation and viewer
+  pdf: ^3.11.1
+  printing: ^5.12.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  flutter_launcher_icons: ^0.14.3
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/icons/
+    - assets/fonts/
+    - assets/data/
+    - assets/data/devotions/
+    - assets/data/istikhara/
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icons/ICON.png"
+  min_sdk_android: 21
+  adaptive_icon_background: "#0D5C28"
+  adaptive_icon_foreground: "assets/icons/ICON.png"

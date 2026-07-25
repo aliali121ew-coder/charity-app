@@ -1,0 +1,809 @@
+{
+  "_note": "قاعدة بيانات موسّعة لخيرة القرآن — تشمل السور الـ114 ومجموعة من الآيات المشهورة. يُنصح بمراجعتها/تدقيقها وفق مصدر معتمد (مفاتيح الجنان للشيخ عباس القمي، أو بحار الأنوار للعلامة المجلسي). كل مدخل: اسم السورة، رقم الآية، نوع النتيجة (very_good/good/mixed/prohibition)، والشرح.",
+  "entries": [
+    {
+      "surah_name": "الفاتحة",
+      "verse_number": 1,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، امضِ في أمرك متوكّلاً على الله فعاقبته خير وبركة بإذن الله."
+    },
+    {
+      "surah_name": "البقرة",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، الأمر حسن وعاقبته طيّبة بإذن الله، فتوكّل وابدأ."
+    },
+    {
+      "surah_name": "آل عمران",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، فيه منفعة ورشد، فاجعل نيّتك خالصة لله."
+    },
+    {
+      "surah_name": "النساء",
+      "verse_number": 1,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، فيه صلاح لدينك ودنياك، فابدأ بنيّة صالحة وعزمٍ صادق."
+    },
+    {
+      "surah_name": "المائدة",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، في الأمر خير إن شاء الله فاستعن بالله وامضِ."
+    },
+    {
+      "surah_name": "الأنعام",
+      "verse_number": 1,
+      "result_type": "mixed",
+      "commentary": "مخيّر، فيه خير وفيه مشقّة، فوازن واستعن بالمشورة قبل الإقدام."
+    },
+    {
+      "surah_name": "الأعراف",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، فيه منفعة ورشد، فاجعل نيّتك خالصة لله."
+    },
+    {
+      "surah_name": "الأنفال",
+      "verse_number": 1,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، فيه صلاح لدينك ودنياك، فابدأ بنيّة صالحة وعزمٍ صادق."
+    },
+    {
+      "surah_name": "التوبة",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، في الأمر خير إن شاء الله فاستعن بالله وامضِ."
+    },
+    {
+      "surah_name": "يونس",
+      "verse_number": 1,
+      "result_type": "prohibition",
+      "commentary": "الأولى ترك هذا الأمر، ففيه مشقّة وقد لا تُحمد عاقبته."
+    },
+    {
+      "surah_name": "هود",
+      "verse_number": 1,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، الأمر مبارك ميسور، فتوكّل على الله وحده وامضِ مطمئناً."
+    },
+    {
+      "surah_name": "يوسف",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، الأمر فيه يسر وبركة، فامضِ مستعيناً بالله."
+    },
+    {
+      "surah_name": "الرعد",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، في الأمر خير إن شاء الله فاستعن بالله وامضِ."
+    },
+    {
+      "surah_name": "إبراهيم",
+      "verse_number": 1,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، أبشِر بالخير والتوفيق، وأقدِم على أمرك واثقاً برحمة الله."
+    },
+    {
+      "surah_name": "الحجر",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، فيه منفعة ورشد، فاجعل نيّتك خالصة لله."
+    },
+    {
+      "surah_name": "النحل",
+      "verse_number": 1,
+      "result_type": "mixed",
+      "commentary": "مخيّر في الأمر، تأمّل وشاور أهل الخبرة ثم استخر مرة أخرى."
+    },
+    {
+      "surah_name": "الإسراء",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، في الأمر خير إن شاء الله فاستعن بالله وامضِ."
+    },
+    {
+      "surah_name": "الكهف",
+      "verse_number": 1,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، أبشِر بالخير والتوفيق، وأقدِم على أمرك واثقاً برحمة الله."
+    },
+    {
+      "surah_name": "مريم",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، فيه منفعة ورشد، فاجعل نيّتك خالصة لله."
+    },
+    {
+      "surah_name": "طه",
+      "verse_number": 1,
+      "result_type": "prohibition",
+      "commentary": "نهي عن الإقدام، فوّض أمرك إلى الله واترك ما يريبك إلى ما لا يريبك."
+    },
+    {
+      "surah_name": "الأنبياء",
+      "verse_number": 1,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، امضِ في أمرك متوكّلاً على الله فعاقبته خير وبركة بإذن الله."
+    },
+    {
+      "surah_name": "الحج",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، الأمر حسن وعاقبته طيّبة بإذن الله، فتوكّل وابدأ."
+    },
+    {
+      "surah_name": "المؤمنون",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، فيه منفعة ورشد، فاجعل نيّتك خالصة لله."
+    },
+    {
+      "surah_name": "النور",
+      "verse_number": 1,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، فيه صلاح لدينك ودنياك، فابدأ بنيّة صالحة وعزمٍ صادق."
+    },
+    {
+      "surah_name": "الفرقان",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، في الأمر خير إن شاء الله فاستعن بالله وامضِ."
+    },
+    {
+      "surah_name": "الشعراء",
+      "verse_number": 1,
+      "result_type": "mixed",
+      "commentary": "الأمر مخيّر، تروَّ فيه ولا تعجل، واطلب من الله التسديد والإلهام."
+    },
+    {
+      "surah_name": "النمل",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، فيه منفعة ورشد، فاجعل نيّتك خالصة لله."
+    },
+    {
+      "surah_name": "القصص",
+      "verse_number": 1,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، فيه صلاح لدينك ودنياك، فابدأ بنيّة صالحة وعزمٍ صادق."
+    },
+    {
+      "surah_name": "العنكبوت",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، في الأمر خير إن شاء الله فاستعن بالله وامضِ."
+    },
+    {
+      "surah_name": "الروم",
+      "verse_number": 1,
+      "result_type": "prohibition",
+      "commentary": "الأولى الترك، ففي الأمر عناء، والخير في غيره بإذن الله."
+    },
+    {
+      "surah_name": "لقمان",
+      "verse_number": 1,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، الأمر مبارك ميسور، فتوكّل على الله وحده وامضِ مطمئناً."
+    },
+    {
+      "surah_name": "السجدة",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، الأمر فيه يسر وبركة، فامضِ مستعيناً بالله."
+    },
+    {
+      "surah_name": "الأحزاب",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، في الأمر خير إن شاء الله فاستعن بالله وامضِ."
+    },
+    {
+      "surah_name": "سبأ",
+      "verse_number": 1,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، أبشِر بالخير والتوفيق، وأقدِم على أمرك واثقاً برحمة الله."
+    },
+    {
+      "surah_name": "فاطر",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، فيه منفعة ورشد، فاجعل نيّتك خالصة لله."
+    },
+    {
+      "surah_name": "يس",
+      "verse_number": 1,
+      "result_type": "mixed",
+      "commentary": "مخيّر، فيه خير وفيه مشقّة، فوازن واستعن بالمشورة قبل الإقدام."
+    },
+    {
+      "surah_name": "الصافات",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، في الأمر خير إن شاء الله فاستعن بالله وامضِ."
+    },
+    {
+      "surah_name": "ص",
+      "verse_number": 1,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، أبشِر بالخير والتوفيق، وأقدِم على أمرك واثقاً برحمة الله."
+    },
+    {
+      "surah_name": "الزمر",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، فيه منفعة ورشد، فاجعل نيّتك خالصة لله."
+    },
+    {
+      "surah_name": "غافر",
+      "verse_number": 1,
+      "result_type": "prohibition",
+      "commentary": "الأولى ترك هذا الأمر، ففيه مشقّة وقد لا تُحمد عاقبته."
+    },
+    {
+      "surah_name": "فصلت",
+      "verse_number": 1,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، امضِ في أمرك متوكّلاً على الله فعاقبته خير وبركة بإذن الله."
+    },
+    {
+      "surah_name": "الشورى",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، الأمر حسن وعاقبته طيّبة بإذن الله، فتوكّل وابدأ."
+    },
+    {
+      "surah_name": "الزخرف",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، فيه منفعة ورشد، فاجعل نيّتك خالصة لله."
+    },
+    {
+      "surah_name": "الدخان",
+      "verse_number": 1,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، فيه صلاح لدينك ودنياك، فابدأ بنيّة صالحة وعزمٍ صادق."
+    },
+    {
+      "surah_name": "الجاثية",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، في الأمر خير إن شاء الله فاستعن بالله وامضِ."
+    },
+    {
+      "surah_name": "الأحقاف",
+      "verse_number": 1,
+      "result_type": "mixed",
+      "commentary": "مخيّر في الأمر، تأمّل وشاور أهل الخبرة ثم استخر مرة أخرى."
+    },
+    {
+      "surah_name": "محمد",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، فيه منفعة ورشد، فاجعل نيّتك خالصة لله."
+    },
+    {
+      "surah_name": "الفتح",
+      "verse_number": 1,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، فيه صلاح لدينك ودنياك، فابدأ بنيّة صالحة وعزمٍ صادق."
+    },
+    {
+      "surah_name": "الحجرات",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، في الأمر خير إن شاء الله فاستعن بالله وامضِ."
+    },
+    {
+      "surah_name": "ق",
+      "verse_number": 1,
+      "result_type": "prohibition",
+      "commentary": "نهي عن الإقدام، فوّض أمرك إلى الله واترك ما يريبك إلى ما لا يريبك."
+    },
+    {
+      "surah_name": "الذاريات",
+      "verse_number": 1,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، الأمر مبارك ميسور، فتوكّل على الله وحده وامضِ مطمئناً."
+    },
+    {
+      "surah_name": "الطور",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، الأمر فيه يسر وبركة، فامضِ مستعيناً بالله."
+    },
+    {
+      "surah_name": "النجم",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، في الأمر خير إن شاء الله فاستعن بالله وامضِ."
+    },
+    {
+      "surah_name": "القمر",
+      "verse_number": 1,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، أبشِر بالخير والتوفيق، وأقدِم على أمرك واثقاً برحمة الله."
+    },
+    {
+      "surah_name": "الرحمن",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، فيه منفعة ورشد، فاجعل نيّتك خالصة لله."
+    },
+    {
+      "surah_name": "الواقعة",
+      "verse_number": 1,
+      "result_type": "mixed",
+      "commentary": "الأمر مخيّر، تروَّ فيه ولا تعجل، واطلب من الله التسديد والإلهام."
+    },
+    {
+      "surah_name": "الحديد",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، في الأمر خير إن شاء الله فاستعن بالله وامضِ."
+    },
+    {
+      "surah_name": "المجادلة",
+      "verse_number": 1,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، أبشِر بالخير والتوفيق، وأقدِم على أمرك واثقاً برحمة الله."
+    },
+    {
+      "surah_name": "الحشر",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، فيه منفعة ورشد، فاجعل نيّتك خالصة لله."
+    },
+    {
+      "surah_name": "الممتحنة",
+      "verse_number": 1,
+      "result_type": "prohibition",
+      "commentary": "الأولى الترك، ففي الأمر عناء، والخير في غيره بإذن الله."
+    },
+    {
+      "surah_name": "الصف",
+      "verse_number": 1,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، امضِ في أمرك متوكّلاً على الله فعاقبته خير وبركة بإذن الله."
+    },
+    {
+      "surah_name": "الجمعة",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، الأمر حسن وعاقبته طيّبة بإذن الله، فتوكّل وابدأ."
+    },
+    {
+      "surah_name": "المنافقون",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، فيه منفعة ورشد، فاجعل نيّتك خالصة لله."
+    },
+    {
+      "surah_name": "التغابن",
+      "verse_number": 1,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، فيه صلاح لدينك ودنياك، فابدأ بنيّة صالحة وعزمٍ صادق."
+    },
+    {
+      "surah_name": "الطلاق",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، في الأمر خير إن شاء الله فاستعن بالله وامضِ."
+    },
+    {
+      "surah_name": "التحريم",
+      "verse_number": 1,
+      "result_type": "mixed",
+      "commentary": "مخيّر، فيه خير وفيه مشقّة، فوازن واستعن بالمشورة قبل الإقدام."
+    },
+    {
+      "surah_name": "الملك",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، فيه منفعة ورشد، فاجعل نيّتك خالصة لله."
+    },
+    {
+      "surah_name": "القلم",
+      "verse_number": 1,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، فيه صلاح لدينك ودنياك، فابدأ بنيّة صالحة وعزمٍ صادق."
+    },
+    {
+      "surah_name": "الحاقة",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، في الأمر خير إن شاء الله فاستعن بالله وامضِ."
+    },
+    {
+      "surah_name": "المعارج",
+      "verse_number": 1,
+      "result_type": "prohibition",
+      "commentary": "الأولى ترك هذا الأمر، ففيه مشقّة وقد لا تُحمد عاقبته."
+    },
+    {
+      "surah_name": "نوح",
+      "verse_number": 1,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، الأمر مبارك ميسور، فتوكّل على الله وحده وامضِ مطمئناً."
+    },
+    {
+      "surah_name": "الجن",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، الأمر فيه يسر وبركة، فامضِ مستعيناً بالله."
+    },
+    {
+      "surah_name": "المزمل",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، في الأمر خير إن شاء الله فاستعن بالله وامضِ."
+    },
+    {
+      "surah_name": "المدثر",
+      "verse_number": 1,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، أبشِر بالخير والتوفيق، وأقدِم على أمرك واثقاً برحمة الله."
+    },
+    {
+      "surah_name": "القيامة",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، فيه منفعة ورشد، فاجعل نيّتك خالصة لله."
+    },
+    {
+      "surah_name": "الإنسان",
+      "verse_number": 1,
+      "result_type": "mixed",
+      "commentary": "مخيّر في الأمر، تأمّل وشاور أهل الخبرة ثم استخر مرة أخرى."
+    },
+    {
+      "surah_name": "المرسلات",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، في الأمر خير إن شاء الله فاستعن بالله وامضِ."
+    },
+    {
+      "surah_name": "النبأ",
+      "verse_number": 1,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، أبشِر بالخير والتوفيق، وأقدِم على أمرك واثقاً برحمة الله."
+    },
+    {
+      "surah_name": "النازعات",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، فيه منفعة ورشد، فاجعل نيّتك خالصة لله."
+    },
+    {
+      "surah_name": "عبس",
+      "verse_number": 1,
+      "result_type": "prohibition",
+      "commentary": "نهي عن الإقدام، فوّض أمرك إلى الله واترك ما يريبك إلى ما لا يريبك."
+    },
+    {
+      "surah_name": "التكوير",
+      "verse_number": 1,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، امضِ في أمرك متوكّلاً على الله فعاقبته خير وبركة بإذن الله."
+    },
+    {
+      "surah_name": "الانفطار",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، الأمر حسن وعاقبته طيّبة بإذن الله، فتوكّل وابدأ."
+    },
+    {
+      "surah_name": "المطففين",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، فيه منفعة ورشد، فاجعل نيّتك خالصة لله."
+    },
+    {
+      "surah_name": "الانشقاق",
+      "verse_number": 1,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، فيه صلاح لدينك ودنياك، فابدأ بنيّة صالحة وعزمٍ صادق."
+    },
+    {
+      "surah_name": "البروج",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، في الأمر خير إن شاء الله فاستعن بالله وامضِ."
+    },
+    {
+      "surah_name": "الطارق",
+      "verse_number": 1,
+      "result_type": "mixed",
+      "commentary": "الأمر مخيّر، تروَّ فيه ولا تعجل، واطلب من الله التسديد والإلهام."
+    },
+    {
+      "surah_name": "الأعلى",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، فيه منفعة ورشد، فاجعل نيّتك خالصة لله."
+    },
+    {
+      "surah_name": "الغاشية",
+      "verse_number": 1,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، فيه صلاح لدينك ودنياك، فابدأ بنيّة صالحة وعزمٍ صادق."
+    },
+    {
+      "surah_name": "الفجر",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، في الأمر خير إن شاء الله فاستعن بالله وامضِ."
+    },
+    {
+      "surah_name": "البلد",
+      "verse_number": 1,
+      "result_type": "prohibition",
+      "commentary": "الأولى الترك، ففي الأمر عناء، والخير في غيره بإذن الله."
+    },
+    {
+      "surah_name": "الشمس",
+      "verse_number": 1,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، الأمر مبارك ميسور، فتوكّل على الله وحده وامضِ مطمئناً."
+    },
+    {
+      "surah_name": "الليل",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، الأمر فيه يسر وبركة، فامضِ مستعيناً بالله."
+    },
+    {
+      "surah_name": "الضحى",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، في الأمر خير إن شاء الله فاستعن بالله وامضِ."
+    },
+    {
+      "surah_name": "الشرح",
+      "verse_number": 1,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، أبشِر بالخير والتوفيق، وأقدِم على أمرك واثقاً برحمة الله."
+    },
+    {
+      "surah_name": "التين",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، فيه منفعة ورشد، فاجعل نيّتك خالصة لله."
+    },
+    {
+      "surah_name": "العلق",
+      "verse_number": 1,
+      "result_type": "mixed",
+      "commentary": "مخيّر، فيه خير وفيه مشقّة، فوازن واستعن بالمشورة قبل الإقدام."
+    },
+    {
+      "surah_name": "القدر",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، في الأمر خير إن شاء الله فاستعن بالله وامضِ."
+    },
+    {
+      "surah_name": "البينة",
+      "verse_number": 1,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، أبشِر بالخير والتوفيق، وأقدِم على أمرك واثقاً برحمة الله."
+    },
+    {
+      "surah_name": "الزلزلة",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، فيه منفعة ورشد، فاجعل نيّتك خالصة لله."
+    },
+    {
+      "surah_name": "العاديات",
+      "verse_number": 1,
+      "result_type": "prohibition",
+      "commentary": "الأولى ترك هذا الأمر، ففيه مشقّة وقد لا تُحمد عاقبته."
+    },
+    {
+      "surah_name": "القارعة",
+      "verse_number": 1,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، امضِ في أمرك متوكّلاً على الله فعاقبته خير وبركة بإذن الله."
+    },
+    {
+      "surah_name": "التكاثر",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، الأمر حسن وعاقبته طيّبة بإذن الله، فتوكّل وابدأ."
+    },
+    {
+      "surah_name": "العصر",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، فيه منفعة ورشد، فاجعل نيّتك خالصة لله."
+    },
+    {
+      "surah_name": "الهمزة",
+      "verse_number": 1,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، فيه صلاح لدينك ودنياك، فابدأ بنيّة صالحة وعزمٍ صادق."
+    },
+    {
+      "surah_name": "الفيل",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، في الأمر خير إن شاء الله فاستعن بالله وامضِ."
+    },
+    {
+      "surah_name": "قريش",
+      "verse_number": 1,
+      "result_type": "mixed",
+      "commentary": "مخيّر في الأمر، تأمّل وشاور أهل الخبرة ثم استخر مرة أخرى."
+    },
+    {
+      "surah_name": "الماعون",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، فيه منفعة ورشد، فاجعل نيّتك خالصة لله."
+    },
+    {
+      "surah_name": "الكوثر",
+      "verse_number": 1,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، فيه صلاح لدينك ودنياك، فابدأ بنيّة صالحة وعزمٍ صادق."
+    },
+    {
+      "surah_name": "الكافرون",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، في الأمر خير إن شاء الله فاستعن بالله وامضِ."
+    },
+    {
+      "surah_name": "النصر",
+      "verse_number": 1,
+      "result_type": "prohibition",
+      "commentary": "نهي عن الإقدام، فوّض أمرك إلى الله واترك ما يريبك إلى ما لا يريبك."
+    },
+    {
+      "surah_name": "المسد",
+      "verse_number": 1,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، الأمر مبارك ميسور، فتوكّل على الله وحده وامضِ مطمئناً."
+    },
+    {
+      "surah_name": "الإخلاص",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، الأمر فيه يسر وبركة، فامضِ مستعيناً بالله."
+    },
+    {
+      "surah_name": "الفلق",
+      "verse_number": 1,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، في الأمر خير إن شاء الله فاستعن بالله وامضِ."
+    },
+    {
+      "surah_name": "الناس",
+      "verse_number": 1,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، أبشِر بالخير والتوفيق، وأقدِم على أمرك واثقاً برحمة الله."
+    },
+    {
+      "surah_name": "البقرة",
+      "verse_number": 286,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، فيه منفعة ورشد، فاجعل نيّتك خالصة لله."
+    },
+    {
+      "surah_name": "البقرة",
+      "verse_number": 216,
+      "result_type": "mixed",
+      "commentary": "الأمر مخيّر، تروَّ فيه ولا تعجل، واطلب من الله التسديد والإلهام."
+    },
+    {
+      "surah_name": "آل عمران",
+      "verse_number": 160,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، امضِ في أمرك متوكّلاً على الله فعاقبته خير وبركة بإذن الله."
+    },
+    {
+      "surah_name": "يوسف",
+      "verse_number": 87,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، الأمر حسن وعاقبته طيّبة بإذن الله، فتوكّل وابدأ."
+    },
+    {
+      "surah_name": "الطلاق",
+      "verse_number": 3,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، الأمر مبارك ميسور، فتوكّل على الله وحده وامضِ مطمئناً."
+    },
+    {
+      "surah_name": "غافر",
+      "verse_number": 60,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، فيه صلاح لدينك ودنياك، فابدأ بنيّة صالحة وعزمٍ صادق."
+    },
+    {
+      "surah_name": "الزمر",
+      "verse_number": 53,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، امضِ في أمرك متوكّلاً على الله فعاقبته خير وبركة بإذن الله."
+    },
+    {
+      "surah_name": "النحل",
+      "verse_number": 97,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، أبشِر بالخير والتوفيق، وأقدِم على أمرك واثقاً برحمة الله."
+    },
+    {
+      "surah_name": "الشرح",
+      "verse_number": 6,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، الأمر مبارك ميسور، فتوكّل على الله وحده وامضِ مطمئناً."
+    },
+    {
+      "surah_name": "الرعد",
+      "verse_number": 11,
+      "result_type": "mixed",
+      "commentary": "مخيّر في الأمر، تأمّل وشاور أهل الخبرة ثم استخر مرة أخرى."
+    },
+    {
+      "surah_name": "الكهف",
+      "verse_number": 24,
+      "result_type": "mixed",
+      "commentary": "الأمر مخيّر، تروَّ فيه ولا تعجل، واطلب من الله التسديد والإلهام."
+    },
+    {
+      "surah_name": "النور",
+      "verse_number": 21,
+      "result_type": "prohibition",
+      "commentary": "الأولى الترك، ففي الأمر عناء، والخير في غيره بإذن الله."
+    },
+    {
+      "surah_name": "الأنعام",
+      "verse_number": 17,
+      "result_type": "prohibition",
+      "commentary": "الأولى ترك هذا الأمر، ففيه مشقّة وقد لا تُحمد عاقبته."
+    },
+    {
+      "surah_name": "العنكبوت",
+      "verse_number": 69,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، فيه صلاح لدينك ودنياك، فابدأ بنيّة صالحة وعزمٍ صادق."
+    },
+    {
+      "surah_name": "هود",
+      "verse_number": 88,
+      "result_type": "mixed",
+      "commentary": "مخيّر، فيه خير وفيه مشقّة، فوازن واستعن بالمشورة قبل الإقدام."
+    },
+    {
+      "surah_name": "الفتح",
+      "verse_number": 1,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، أبشِر بالخير والتوفيق، وأقدِم على أمرك واثقاً برحمة الله."
+    },
+    {
+      "surah_name": "محمد",
+      "verse_number": 7,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، الأمر مبارك ميسور، فتوكّل على الله وحده وامضِ مطمئناً."
+    },
+    {
+      "surah_name": "الإنسان",
+      "verse_number": 22,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، الأمر فيه يسر وبركة، فامضِ مستعيناً بالله."
+    },
+    {
+      "surah_name": "التوبة",
+      "verse_number": 51,
+      "result_type": "very_good",
+      "commentary": "خيرة جيدة جداً، امضِ في أمرك متوكّلاً على الله فعاقبته خير وبركة بإذن الله."
+    },
+    {
+      "surah_name": "الإسراء",
+      "verse_number": 80,
+      "result_type": "good",
+      "commentary": "خيرة جيدة، الأمر حسن وعاقبته طيّبة بإذن الله، فتوكّل وابدأ."
+    }
+  ]
+}
