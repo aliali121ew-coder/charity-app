@@ -7,6 +7,7 @@ import 'package:charity_app/app.dart';
 import 'package:charity_app/shared/providers/app_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:charity_app/core/supabase/supabase_config.dart';
+import 'package:charity_app/core/supabase/secure_local_storage.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -42,6 +43,9 @@ void main() async {
   await Supabase.initialize(
     url: SupabaseConfig.url,
     anonKey: SupabaseConfig.anonKey,
+    authOptions: FlutterAuthClientOptions(
+      localStorage: SecureLocalStorage(),
+    ),
   );
 
   runApp(
