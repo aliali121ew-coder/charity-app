@@ -5,14 +5,92 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import 'package:charity_app/core/theme/app_colors.dart';
+import 'package:charity_app/shared/models/subscriber_model.dart';
+import 'package:charity_app/features/subscribers/data/supabase_subscribers_repository.dart';
 
 part '../widgets/families_widgets.dart';
 part '../widgets/families_sheets.dart';
 part '../widgets/subscriber_detail.dart';
 
-List<Map<String, dynamic>> getLateSubscribersData() {
+// ── Supabase → _Delegate/_Subscriber mapping ──────────────────────────────────
+// Groups a flat list of SubscriberModel (from Supabase) into the private
+// _Delegate/_Subscriber shapes that the existing widgets consume, WITHOUT
+// touching those classes or their getters. See fields not present in the data
+// (phone/specialty/joinDate/address/monthsActive) which get faithful placeholders.
+List<_Delegate> _buildDelegatesFromModels(List<SubscriberModel> models) {
+  // Preserve first-seen order of delegate names so colorIndex stays stable.
+  final Map<String, List<SubscriberModel>> grouped = {};
+  for (final m in models) {
+    final key = (m.delegate == null || m.delegate!.isEmpty) ? 'غير محدد' : m.delegate!;
+    grouped.putIfAbsent(key, () => []).add(m);
+  }
+
+  final List<_Delegate> delegates = [];
+  var n = 0;
+  grouped.forEach((delegateName, subs) {
+    n++;
+    // Most common area among this delegate's subscribers (fallback: first).
+    final Map<String, int> areaCounts = {};
+    for (final s in subs) {
+      if (s.area.isNotEmpty) {
+        areaCounts[s.area] = (areaCounts[s.area] ?? 0) + 1;
+      }
+    }
+    String area = subs.isNotEmpty ? subs.first.area : '';
+    var best = -1;
+    areaCounts.forEach((a, c) {
+      if (c > best) {
+        best = c;
+        area = a;
+      }
+    });
+
+    delegates.add(
+      _Delegate(
+        id: 'd$n',
+        name: delegateName,
+        area: area,
+        phone: '',
+        isFemale: false,
+        specialty: 'مندوب',
+        joinDate: DateTime(2024, 1, 1),
+        address: '',
+        subscribers: subs.map(_subscriberFromModel).toList(),
+      ),
+    );
+  });
+  return delegates;
+}
+
+// Maps a single SubscriberModel to _Subscriber. `lastPayment` is synthesized so
+// that the EXISTING _Subscriber.monthsLate getter (which measures against
+// month 3 / 2026) returns exactly s.overdueMonths. e.g. overdueMonths=3 →
+// DateTime(2026, 0, 1) → Dec 2025 → (2026-2025)*12 + (3-12) = 3.
+_Subscriber _subscriberFromModel(SubscriberModel s) => _Subscriber(
+      id: s.id,
+      name: s.name,
+      monthsActive: 12, // not present in data; constant placeholder.
+      lastPayment: DateTime(2026, 3 - s.overdueMonths, 1),
+      monthlyAmount: s.subscriptionAmount,
+    );
+
+// Async variant of getLateSubscribersData() backed by real Supabase data.
+// Returns the SAME List<Map> shape (delegateName / subscriberName /
+// monthlyAmount / unpaidMonths) used by overdue_table_page + analysis PDF.
+// unpaidMonths is the last `overdueMonths` month-numbers ending at 3
+// (e.g. overdueMonths=2 → [2, 3]); subscribers with overdueMonths=0 are skipped.
+Future<List<Map<String, dynamic>>> fetchLateSubscribersData() async {
+  final models = await SupabaseSubscribersRepository().getAll();
+  final delegates = _buildDelegatesFromModels(models);
+  return getLateSubscribersData(delegates);
+}
+
+// Builds the late-subscribers rows from a given list of delegates (same logic
+// as the legacy no-arg reader below, parameterized so callers can pass real
+// grouped data). Kept private-typed since _Delegate is library-private.
+List<Map<String, dynamic>> _lateSubscribersFrom(List<_Delegate> delegates) {
   final List<Map<String, dynamic>> list = [];
-  for (final delegate in _mockDelegates) {
+  for (final delegate in delegates) {
     for (final subscriber in delegate.subscribers) {
       const now = 3; // March 2026 = month 3
       final List<int> unpaid = [];
@@ -32,6 +110,13 @@ List<Map<String, dynamic>> getLateSubscribersData() {
     }
   }
   return list;
+}
+
+// Legacy no-arg signature preserved for existing sync callers (analysis PDF).
+// Now delegates to the parameterized builder; the optional argument lets newer
+// callers pass real Supabase-derived delegates instead of the mock list.
+List<Map<String, dynamic>> getLateSubscribersData([List<_Delegate>? delegates]) {
+  return _lateSubscribersFrom(delegates ?? _mockDelegates);
 }
 
 // ── Data Models ───────────────────────────────────────────────────────────────
@@ -179,7 +264,40 @@ class FamiliesPage extends ConsumerStatefulWidget {
 class _FamiliesPageState extends ConsumerState<FamiliesPage> {
   String _query = '';
 
-  List<_Delegate> get _filtered => _mockDelegates
+  // Real Supabase-backed delegates (grouped from SubscriberModel list).
+  List<_Delegate>? _delegates;
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final models = await SupabaseSubscribersRepository().getAll();
+      final delegates = _buildDelegatesFromModels(models);
+      if (!mounted) return;
+      setState(() {
+        _delegates = delegates;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
+    }
+  }
+
+  List<_Delegate> get _filtered => (_delegates ?? const <_Delegate>[])
       .where((d) => _query.isEmpty || d.name.contains(_query) || d.area.contains(_query))
       .toList();
 
@@ -189,9 +307,9 @@ class _FamiliesPageState extends ConsumerState<FamiliesPage> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _AddDelegateSheet(
-        onSaved: () {
-          setState(() {});
-        },
+        // TODO(supabase): creating a delegate requires a staff/auth account
+        // (make_staff); not persisted yet. Reloading re-reads real subscribers.
+        onSaved: () => _load(),
       ),
     );
   }
@@ -199,7 +317,8 @@ class _FamiliesPageState extends ConsumerState<FamiliesPage> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final totalSubs = _mockDelegates.fold(0, (s, d) => s + d.subscribers.length);
+    final loadedDelegates = _delegates ?? const <_Delegate>[];
+    final totalSubs = loadedDelegates.fold(0, (s, d) => s + d.subscribers.length);
 
     return Column(
       children: [
@@ -252,7 +371,7 @@ class _FamiliesPageState extends ConsumerState<FamiliesPage> {
               // Stats row
               Row(
                 children: [
-                  _StatChip(label: 'المندوبين', value: '${_mockDelegates.length}',
+                  _StatChip(label: 'المندوبين', value: '${loadedDelegates.length}',
                       color: AppColors.primary, icon: Icons.badge_rounded),
                   const SizedBox(width: 8),
                   _StatChip(label: 'المشتركين', value: '$totalSubs',
@@ -297,22 +416,49 @@ class _FamiliesPageState extends ConsumerState<FamiliesPage> {
 
         // Grid
         Expanded(
-          child: _filtered.isEmpty
-              ? Center(child: Text('لا توجد نتائج', style: GoogleFonts.cairo(fontSize: 14)))
-              : GridView.builder(
-                  padding: const EdgeInsets.all(12),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                    childAspectRatio: 0.72,
-                  ),
-                  itemCount: _filtered.length,
-                  itemBuilder: (ctx, i) => _DelegateCard(
-                    delegate: _filtered[i],
-                    onRefresh: () => setState(() {}),
-                  ),
-                ),
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : _error != null
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.error_outline_rounded, size: 40,
+                              color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight),
+                          const SizedBox(height: 10),
+                          Text('تعذّر تحميل البيانات',
+                              style: GoogleFonts.cairo(fontSize: 14, fontWeight: FontWeight.w700,
+                                  color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight)),
+                          const SizedBox(height: 12),
+                          ElevatedButton.icon(
+                            onPressed: _load,
+                            icon: const Icon(Icons.refresh_rounded, size: 18),
+                            label: Text('إعادة المحاولة',
+                                style: GoogleFonts.cairo(fontSize: 13, fontWeight: FontWeight.w700)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : _filtered.isEmpty
+                      ? Center(child: Text('لا توجد نتائج', style: GoogleFonts.cairo(fontSize: 14)))
+                      : GridView.builder(
+                          padding: const EdgeInsets.all(12),
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                            childAspectRatio: 0.72,
+                          ),
+                          itemCount: _filtered.length,
+                          itemBuilder: (ctx, i) => _DelegateCard(
+                            delegate: _filtered[i],
+                            onRefresh: () => setState(() {}),
+                          ),
+                        ),
         ),
       ],
     );

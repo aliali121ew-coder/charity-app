@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>مخطط قاعدة بيانات Charity App · Supabase</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a1120; --panel:#111c30; --panel2:#0f1829; --line:rgba(148,163,184,.16);
+    --tx:#e6edf6; --mut:#93a4bd; --teal:#2dd4bf; --green:#34d399; --amber:#fbbf24;
+    --pink:#f472b6; --blue:#60a5fa; --violet:#a78bfa;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:radial-gradient(1200px 700px at 80% -10%,rgba(45,212,191,.10),transparent 60%),
+        radial-gradient(1000px 600px at 0% 0%,rgba(96,165,250,.08),transparent 55%),var(--bg);
+        color:var(--tx);font-family:'Cairo',system-ui,sans-serif;line-height:1.75;
+        padding:0 5vw 90px}
+  .wrap{max-width:1080px;margin:0 auto}
+  code,.mono{font-family:'JetBrains Mono',monospace;direction:ltr;unicode-bidi:embed}
+  header.hero{padding:64px 0 26px;border-bottom:1px solid var(--line)}
+  .eyebrow{color:var(--teal);font-weight:700;letter-spacing:.14em;font-size:.82rem;margin:0 0 12px}
+  h1{font-size:clamp(2rem,4.6vw,3.2rem);font-weight:900;margin:0 0 14px;line-height:1.2}
+  h1 .g{background:linear-gradient(90deg,var(--teal),var(--green));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .sub{color:var(--mut);font-size:1.12rem;max-width:760px}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:34px 0 6px}
+  .stat{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);
+        border-radius:16px;padding:18px 16px;text-align:center}
+  .stat b{display:block;font-size:1.9rem;font-weight:900;color:var(--teal);font-family:'JetBrains Mono',monospace}
+  .stat span{color:var(--mut);font-size:.9rem}
+  section{padding:44px 0;border-bottom:1px solid var(--line)}
+  h2{font-size:1.7rem;font-weight:800;margin:0 0 8px;display:flex;align-items:center;gap:12px}
+  h2 .dot{width:11px;height:11px;border-radius:3px;background:var(--teal);box-shadow:0 0 14px var(--teal)}
+  .lead{color:var(--mut);margin:0 0 26px;max-width:820px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .card{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:18px;padding:22px}
+  .card h3{margin:0 0 6px;font-size:1.15rem;display:flex;align-items:center;gap:10px}
+  .pill{font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--mut);direction:ltr}
+  .tag-staff{color:var(--amber);border-color:rgba(251,191,36,.4)}
+  .tag-comm{color:var(--green);border-color:rgba(52,211,153,.4)}
+  .diagram{background:#0c1526;border:1px solid var(--line);border-radius:18px;padding:20px;margin:8px 0;overflow-x:auto}
+  .diagram .cap{color:var(--mut);font-size:.9rem;margin:0 0 10px;text-align:center}
+  .mermaid{direction:ltr;display:flex;justify-content:center;min-width:640px}
+  ul.clean{list-style:none;padding:0;margin:0}
+  ul.clean li{padding:9px 0 9px 0;border-bottom:1px dashed var(--line);color:var(--mut)}
+  ul.clean li:last-child{border-bottom:0}
+  ul.clean b{color:var(--tx)}
+  .kbd{font-family:'JetBrains Mono',monospace;background:#0c1526;border:1px solid var(--line);border-radius:8px;padding:2px 7px;color:var(--teal);direction:ltr;font-size:.86em}
+  .tref{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .trow{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:13px 15px}
+  .trow .n{font-family:'JetBrains Mono',monospace;color:var(--teal);font-weight:600;direction:ltr}
+  .trow .d{color:var(--mut);font-size:.9rem;margin-top:3px}
+  .note{background:rgba(45,212,191,.08);border:1px solid rgba(45,212,191,.3);border-radius:14px;padding:16px 18px;color:#c9f6ee}
+  .warn{background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.32);border-radius:14px;padding:16px 18px;color:#fde9bd}
+  pre{background:#0c1526;border:1px solid var(--line);border-radius:14px;padding:16px;overflow-x:auto;direction:ltr}
+  pre code{color:#d6e2f2;font-size:.86rem}
+  .foot{color:var(--mut);font-size:.86rem;text-align:center;padding-top:30px}
+  @media(max-width:760px){.grid2,.stats,.tref{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <p class="eyebrow">SUPABASE · POSTGRESQL SCHEMA</p>
+  <h1>قاعدة بيانات <span class="g">تطبيق الخير</span><br/>مصمَّمة للتوسّع</h1>
+  <p class="sub">مخطّط متكامل يدير المندوبين والمشتركين والمساعدات، ويتحمّل <b>1000 مندوب</b> يعملون بالتوازي و<b>أكثر من 100,000 مستخدم</b> للمسابقات وطلبات المساعدة — مبنيّ على Supabase مع Row-Level Security وتخزين الوسائط وتجميع الاتصالات.</p>
+  <div class="stats">
+    <div class="stat"><b>33</b><span>جدولاً</span></div>
+    <div class="stat"><b>1000</b><span>مندوب</span></div>
+    <div class="stat"><b>100k+</b><span>مستخدم</span></div>
+    <div class="stat"><b>RLS</b><span>على كل جدول</span></div>
+  </div>
+</header>
+
+<section>
+  <h2><span class="dot"></span> فئتان من المستخدمين</h2>
+  <p class="lead">سرّ التوسّع هو الفصل بين مَن يدير النظام ومَن يستهلكه. المستخدمون المجتمعيون يتصلون بـ Supabase مباشرةً (محميّين بـ RLS) فلا يمرّون عبر خادمك.</p>
+  <div class="grid2">
+    <div class="card">
+      <h3>الموظفون / المندوبون <span class="pill tag-staff">user_type = staff</span></h3>
+      <ul class="clean">
+        <li><b>مدير</b> (admin) — صلاحيات كاملة</li>
+        <li><b>مشرف</b> (supervisor) — إدارة وإشراف</li>
+        <li><b>مندوب</b> (delegate) — يدير مشتركي مناطقه</li>
+        <li style="color:var(--amber)">≈ 1000 مندوب · يعملون عبر خادم Dart (service_role)</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>المستخدمون المجتمعيون <span class="pill tag-comm">user_type = community</span></h3>
+      <ul class="clean">
+        <li><b>طلبات المساعدة</b> — مالية، سلة غذاء، علاج، حجز طبيب…</li>
+        <li><b>المسابقات والختمات</b> — مشاركة، نقاط، جوائز</li>
+        <li><b>التبرعات</b> والتفاعل مع منشورات الأعمال</li>
+        <li style="color:var(--green)">100,000+ · يتصلون بـ Supabase مباشرةً + RLS</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="dot"></span> العلاقة المحورية: مندوب ↔ مشترك</h2>
+  <p class="lead">كل مشترك وكل عائلة مُسنَدان إلى مندوب واحد، مع جدول تاريخ للإسناد يتيح إعادة التوزيع والتدقيق.</p>
+  <div class="diagram">
+    <p class="cap">الهوية + الإسناد (Identity &amp; assignment)</p>
+    <pre class="mermaid">
+erDiagram
+  "auth.users" ||--|| profiles : "1:1"
+  profiles ||--o| staff_profiles : "staff"
+  staff_profiles ||--o{ subscribers : "assigned_delegate_id"
+  staff_profiles ||--o{ families : "assigned_delegate_id"
+  families ||--o{ subscribers : "family_id"
+  subscribers ||--o{ subscriber_assignments : "history"
+  profiles {
+    uuid id PK
+    user_type user_type
+    text full_name
+    text governorate
+  }
+  staff_profiles {
+    uuid id PK
+    staff_role staff_role
+    text[] assigned_areas
+    int max_subscribers
+  }
+  subscribers {
+    uuid id PK
+    text name
+    uuid assigned_delegate_id FK
+    uuid family_id FK
+    subscriber_status status
+  }
+    </pre>
+  </div>
+</section>
+
+<section>
+  <h2><span class="dot"></span> المساعدات وطلبات المساعدة</h2>
+  <p class="lead">طلب المساعدة يقدّمه مستخدم مجتمعي، يراجعه مندوب، ويمكن أن يتحوّل إلى سجلّ مساعدة مرتبط بمشترك.</p>
+  <div class="diagram">
+    <p class="cap">Help requests → Aid</p>
+    <pre class="mermaid">
+erDiagram
+  profiles ||--o{ help_requests : "requester"
+  staff_profiles ||--o{ help_requests : "reviewed_by"
+  help_requests ||--o{ help_request_attachments : "media"
+  help_requests ||--o{ help_request_status_history : "audit"
+  help_requests ||--o| aid_records : "source"
+  subscribers ||--o{ aid_records : "beneficiary"
+  families ||--o{ aid_records : "beneficiary"
+  help_requests {
+    uuid id PK
+    help_request_type type
+    help_request_status status
+    urgency_level urgency
+    jsonb type_data
+  }
+  aid_records {
+    uuid id PK
+    text reference_number
+    aid_type type
+    numeric amount
+    aid_status status
+  }
+    </pre>
+  </div>
+</section>
+
+<section>
+  <h2><span class="dot"></span> المسابقات والنقاط (نظام التفاعل)</h2>
+  <p class="lead">هنا يقع الحِمل الأكبر (100k مستخدم). دفتر النقاط مصدرٌ للحقيقة، ولوحة الصدارة تُقرأ من جدول مُجمَّع محدَّث بمُشغّلات.</p>
+  <div class="diagram">
+    <p class="cap">Competitions · Points · Store · Khatma</p>
+    <pre class="mermaid">
+erDiagram
+  competitions ||--o{ competition_entries : "join"
+  profiles ||--o{ competition_entries : "user"
+  competition_entries ||--o{ participation_proofs : "daily proof"
+  profiles ||--o{ points_ledger : "ledger"
+  points_ledger ||--|| user_engagement_stats : "trigger →"
+  prizes ||--o{ store_redemptions : "redeem"
+  competitions ||--o{ claim_cards : "win"
+  khatmat ||--o{ khatma_juz : "30 juz"
+  competitions {
+    uuid id PK
+    competition_category category
+    int reward_points
+    int participants_count
+  }
+  points_ledger {
+    bigint id PK
+    uuid user_id FK
+    int delta
+    points_reason reason
+  }
+  user_engagement_stats {
+    uuid user_id PK
+    int total_points
+    int khatma_juz_completed
+  }
+    </pre>
+  </div>
+</section>
+
+<section>
+  <h2><span class="dot"></span> كيف يتحمّل 1000 مندوب و100,000 مستخدم؟</h2>
+  <p class="lead">الأعداد نفسها سهلة على Postgres؛ التحدّي هو التزامن والكتابة الكثيفة. هذه بنية التشغيل:</p>
+  <div class="diagram">
+    <p class="cap">بنية التوسّع على Supabase</p>
+    <pre class="mermaid">
+flowchart TB
+  subgraph C["العملاء"]
+    M["تطبيق الجوال<br/>100k مستخدم مجتمعي"]
+    S["تطبيق المندوبين<br/>1000 مندوب"]
+  end
+  M -->|"supabase_flutter + RLS"| P
+  S -->|"عمليات إدارية"| D["خادم Dart Shelf<br/>service_role (يتجاوز RLS)"]
+  D --> P["Supavisor Pooler<br/>:6543 transaction / :5432 session"]
+  P --> PG[("Postgres — Primary")]
+  PG --> RR[("Read Replica<br/>تقارير + لوحة صدارة")]
+  PG --> ST["Supabase Storage<br/>صور / تسجيلات صوتية"]
+  PG -. "Realtime" .-> M
+  M -->|"رفع الوسائط"| ST
+    </pre>
+  </div>
+  <div class="grid2" style="margin-top:8px">
+    <div class="card"><h3>🔗 تجميع الاتصالات</h3><p style="color:var(--mut);margin:0">آلاف العملاء عبر <b>Supavisor</b> على المنفذ <span class="kbd">6543</span> (Transaction) — لا اتصال Postgres مباشر لكل جهاز.</p></div>
+    <div class="card"><h3>🗂️ التقسيم الشهري</h3><p style="color:var(--mut);margin:0"><span class="kbd">activity_logs</span> و<span class="kbd">notifications</span> مقسّمة بالشهر — فهارس صغيرة وأرشفة = حذف قسم.</p></div>
+    <div class="card"><h3>🏆 لوحة صدارة فورية</h3><p style="color:var(--mut);margin:0">مُشغّل يحدّث <span class="kbd">total_points</span> لحظياً من دفتر النقاط؛ الاستعلام فهرس <span class="kbd">ORDER BY … DESC</span>.</p></div>
+    <div class="card"><h3>🔒 RLS بأداء عالٍ</h3><p style="color:var(--mut);margin:0">كل السياسات تستخدم <span class="kbd">(select auth.uid())</span> لتُحسب مرّة لكل استعلام لا لكل صف.</p></div>
+    <div class="card"><h3>🖼️ الوسائط في Storage</h3><p style="color:var(--mut);margin:0">الصور والصوت خارج القاعدة تماماً؛ الجداول تحفظ المسار فقط — buckets عامة وخاصة بسياسات.</p></div>
+    <div class="card"><h3>⚙️ نزاهة تحت الضغط</h3><p style="color:var(--mut);margin:0"><span class="kbd">UNIQUE</span> يمنع الانضمام المزدوج، وخصم المخزون ذرّي، والنقاط دفتر إضافة-فقط.</p></div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="dot"></span> الهوية عبر Supabase Auth</h2>
+  <div class="note">
+    كل الجداول تشير إلى <span class="kbd">public.profiles(id)</span> وليس إلى <span class="kbd">auth.users</span> مباشرة — فمصدر الهوية قابل للتبديل من مكان واحد. عند تسجيل مستخدم جديد يُنشأ ملفه تلقائياً عبر مُشغّل <span class="kbd">handle_new_user()</span>.
+  </div>
+  <pre><code>-- ترقية مستخدم إلى مندوب بعد تسجيله في Supabase Auth:
+select public.make_staff('mandoub1@charity.org', 'delegate', 'بغداد', array['الكرخ']);</code></pre>
+  <div class="warn" style="margin-top:14px">
+    ⚠️ توصية أمنية: الباك-إند الحالي يستخدم <span class="kbd">_simpleHash</span> وتوكنات في الذاكرة (غير آمنة). مع Supabase يمكن الاستغناء عنها واعتماد Supabase Auth (بريد/هاتف/OTP/Google) — وهذا يحلّ أيضاً مشاكل البريد وОТP السابقة.
+  </div>
+</section>
+
+<section style="border-bottom:0">
+  <h2><span class="dot"></span> دليل الجداول</h2>
+  <div class="tref">
+    <div class="trow"><div class="n">profiles / staff_profiles</div><div class="d">الهوية + المندوبون/المشرفون/المدراء</div></div>
+    <div class="trow"><div class="n">permissions / role_permissions</div><div class="d">صلاحيات مرنة مطابقة لـ Permission enum</div></div>
+    <div class="trow"><div class="n">subscribers</div><div class="d">المشتركون — كلٌّ مُسنَد إلى مندوب</div></div>
+    <div class="trow"><div class="n">families / family_members</div><div class="d">العائلات وأفرادها</div></div>
+    <div class="trow"><div class="n">subscriber_assignments</div><div class="d">تاريخ إسناد المندوبين (تدقيق)</div></div>
+    <div class="trow"><div class="n">aid_records</div><div class="d">المساعدات (مالية/غذاء/طبية/موسمية/تعليم)</div></div>
+    <div class="trow"><div class="n">help_requests (+attachments,+history)</div><div class="d">طلبات المساعدة العامة + المرفقات + سجلّ الحالة</div></div>
+    <div class="trow"><div class="n">competitions / competition_entries</div><div class="d">المسابقات ومشاركات المستخدمين</div></div>
+    <div class="trow"><div class="n">participation_proofs</div><div class="d">أدلّة المشاركة اليومية (مراجعة)</div></div>
+    <div class="trow"><div class="n">points_ledger / user_engagement_stats</div><div class="d">دفتر النقاط + تجميع لوحة الصدارة</div></div>
+    <div class="trow"><div class="n">prizes / store_redemptions / claim_cards</div><div class="d">المتجر + الاستبدال + بطاقات الفوز (QR)</div></div>
+    <div class="trow"><div class="n">khatmat / khatma_juz</div><div class="d">الختمات و30 جزءاً لكلٍّ منها</div></div>
+    <div class="trow"><div class="n">work_posts / comments / reactions</div><div class="d">feed الأعمال والتفاعل معه</div></div>
+    <div class="trow"><div class="n">donation_campaigns / donations / payment_intents</div><div class="d">الحملات والتبرعات وبوابات الدفع</div></div>
+    <div class="trow"><div class="n">activity_logs · notifications</div><div class="d">مقسّمة شهرياً — سجلّ العمليات والإشعارات</div></div>
+    <div class="trow"><div class="n">regions</div><div class="d">المحافظات والمناطق (مرجعي)</div></div>
+  </div>
+</section>
+
+<p class="foot">13 ملف هجرة SQL · <span class="mono">supabase/migrations/0001 → 0013</span> · متوافق مع الباك-إند Dart الحالي</p>
+
+</div>
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({
+    startOnLoad:true, theme:'dark', securityLevel:'loose',
+    themeVariables:{
+      fontFamily:'JetBrains Mono, monospace',
+      primaryColor:'#111c30', primaryBorderColor:'#2dd4bf', primaryTextColor:'#e6edf6',
+      lineColor:'#5b6b86', tertiaryColor:'#0c1526'
+    }
+  });
+</script>
+</body>
+</html>

@@ -1,8 +1,7 @@
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
-import 'package:charity_app/core/constants/app_constants.dart';
-import 'package:charity_app/shared/providers/app_providers.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../domain/interfaces/payment_provider_interface.dart';
 import '../../domain/models/payment_models.dart';
 
@@ -16,10 +15,11 @@ class BackendPaymentsProvider implements PaymentProviderInterface {
         defaultValue: 'https://charity-backend-production-0223.up.railway.app',
       ));
 
-  Future<String?> _token() async {
-    final prefs = _ref.read(sharedPreferencesProvider);
-    return prefs.getString(AppConstants.prefAuthToken);
-  }
+  /// The Supabase access token (JWT) for the current session. The hardened
+  /// backend validates this token; requests without a valid session are
+  /// rejected server-side.
+  String _token() =>
+      Supabase.instance.client.auth.currentSession?.accessToken ?? '';
 
   @override
   String get providerId => 'backend';
@@ -94,8 +94,8 @@ class BackendPaymentsProvider implements PaymentProviderInterface {
     required String donationId,
     Map<String, dynamic>? metadata,
   }) async {
-    final token = await _token();
-    if (token == null || token.isEmpty) {
+    final token = _token();
+    if (token.isEmpty) {
       throw const PaymentException(
         code: 'UNAUTHORIZED',
         message: 'Missing auth token',
@@ -183,8 +183,8 @@ class BackendPaymentsProvider implements PaymentProviderInterface {
 
   @override
   Future<PaymentSession> checkStatus(String sessionId) async {
-    final token = await _token();
-    if (token == null || token.isEmpty) {
+    final token = _token();
+    if (token.isEmpty) {
       throw const PaymentException(
         code: 'UNAUTHORIZED',
         message: 'Missing auth token',
@@ -192,7 +192,10 @@ class BackendPaymentsProvider implements PaymentProviderInterface {
       );
     }
     final url = _apiBase.resolve('/api/payments/status/$sessionId');
-    final resp = await http.get(url, headers: {'Authorization': 'Bearer $token'});
+    final resp = await http.get(url, headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    });
     if (resp.statusCode < 200 || resp.statusCode >= 300) {
       throw const PaymentException(
         code: 'STATUS_FAILED',

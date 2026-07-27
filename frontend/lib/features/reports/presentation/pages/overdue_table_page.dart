@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:charity_app/core/theme/app_colors.dart';
-import 'package:charity_app/features/families/presentation/pages/families_page.dart'; // to get getLateSubscribersData()
+import 'package:charity_app/features/families/presentation/pages/families_page.dart'; // to get fetchLateSubscribersData()
 import 'package:charity_app/features/families/presentation/pages/analysis_pdf_page.dart';
 import 'package:charity_app/features/subscribers/data/mock_subscribers_repository.dart';
 
@@ -20,7 +20,37 @@ class _OverdueTablePageState extends State<OverdueTablePage> {
   String? _selectedDelegate;
   int? _selectedMonthsFilter; // null = All, 1 = 1 month, 2 = 2 months, 3 = 3+ months
 
-  final List<Map<String, dynamic>> _allData = getLateSubscribersData();
+  // Loaded asynchronously from real Supabase subscriber data.
+  List<Map<String, dynamic>> _allData = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final data = await fetchLateSubscribersData();
+      if (!mounted) return;
+      setState(() {
+        _allData = data;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
+    }
+  }
 
   String _getDelegatePhone(String delegateName) {
     switch (delegateName) {
@@ -135,7 +165,34 @@ class _OverdueTablePageState extends State<OverdueTablePage> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.error_outline_rounded, size: 40,
+                          color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight),
+                      const SizedBox(height: 10),
+                      Text('تعذّر تحميل البيانات',
+                          style: GoogleFonts.cairo(fontSize: 14, fontWeight: FontWeight.w700,
+                              color: isDark ? Colors.white : AppColors.textPrimaryLight)),
+                      const SizedBox(height: 12),
+                      ElevatedButton.icon(
+                        onPressed: _load,
+                        icon: const Icon(Icons.refresh_rounded, size: 18),
+                        label: Text('إعادة المحاولة',
+                            style: GoogleFonts.cairo(fontSize: 13, fontWeight: FontWeight.w700)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(

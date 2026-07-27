@@ -45,6 +45,8 @@
 	<string>نحتاج موقعك لتحديد اتجاه القبلة بدقّة وتحديد موقع طلبات المساعدة.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>نحتاج موقعك لتحديد اتجاه القبلة بدقّة وتحديد موقع طلبات المساعدة.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>نحتاج الوصول إلى صورك لإرفاقها بالطلب</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>

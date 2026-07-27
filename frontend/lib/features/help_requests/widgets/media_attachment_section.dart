@@ -1,17 +1,35 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:charity_app/core/theme/app_colors.dart';
 import 'package:charity_app/features/help_requests/domain/entities/media_attachment.dart';
 import 'package:uuid/uuid.dart';
 
+/// قسم المرفقات في نموذج طلب المساعدة.
+///
+/// يلتقط صوراً حقيقيّة من الجهاز عبر image_picker ويحتفظ بالبايتات محليّاً في
+/// [_pendingBytes] مفهرسةً بمعرّف المرفق. تُمرَّر هذه البايتات للأعلى عبر
+/// [onBytesChanged] ليقوم تدفّق الإرسال برفعها إلى Supabase Storage قبل الحفظ.
+///
+/// كيان [MediaAttachment] غير قابل للتعديل ولا يحمل حقل بايتات — لذلك نضع اسم
+/// الملف الفعليّ في [MediaAttachment.name] ونضع قيمة حارسة (sentinel) في
+/// [MediaAttachment.mockPath] للصور المُلتقطة حديثاً (`local:<id>`)، ثمّ
+/// يُستبدَل بالمسار الحقيقيّ بعد الرفع في تدفّق الإرسال.
 class MediaAttachmentSection extends StatefulWidget {
   final List<MediaAttachment> attachments;
   final void Function(List<MediaAttachment>) onChanged;
+
+  /// يُستدعى عند تغيّر البايتات المُلتقطة محليّاً (إضافة/إزالة صورة).
+  /// المفتاح هو معرّف المرفق ([MediaAttachment.id]).
+  final void Function(Map<String, Uint8List>)? onBytesChanged;
 
   const MediaAttachmentSection({
     super.key,
     required this.attachments,
     required this.onChanged,
+    this.onBytesChanged,
   });
 
   @override
@@ -21,18 +39,56 @@ class MediaAttachmentSection extends StatefulWidget {
 class _MediaAttachmentSectionState extends State<MediaAttachmentSection> {
   static const _uuid = Uuid();
 
-  void _addMockImage() {
-    final updated = [
-      ...widget.attachments,
-      MediaAttachment(
-        id: _uuid.v4(),
-        type: AttachmentType.image,
-        name: 'صورة_${widget.attachments.where((a) => a.isImage).length + 1}.jpg',
-        mockPath: 'mock/images/photo.jpg',
-        createdAt: DateTime.now(),
-      ),
-    ];
-    widget.onChanged(updated);
+  /// قيمة حارسة توضع في mockPath للصور المُلتقطة قبل الرفع.
+  static const _localSentinelPrefix = 'local:';
+
+  /// بايتات الصور المُلتقطة محليّاً، مفهرسة بمعرّف المرفق.
+  final Map<String, Uint8List> _pendingBytes = {};
+
+  final ImagePicker _picker = ImagePicker();
+
+  void _emitBytes() {
+    widget.onBytesChanged?.call(Map<String, Uint8List>.from(_pendingBytes));
+  }
+
+  Future<void> _pickImage() async {
+    try {
+      final XFile? picked = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 70,
+      );
+      if (picked == null) return; // ألغى المستخدم الاختيار
+
+      final Uint8List bytes = await picked.readAsBytes();
+      final id = _uuid.v4();
+      final name = picked.name.trim().isEmpty
+          ? 'صورة_${widget.attachments.where((a) => a.isImage).length + 1}.jpg'
+          : picked.name.trim();
+
+      _pendingBytes[id] = bytes;
+
+      final updated = [
+        ...widget.attachments,
+        MediaAttachment(
+          id: id,
+          type: AttachmentType.image,
+          name: name,
+          mockPath: '$_localSentinelPrefix$id',
+          createdAt: DateTime.now(),
+        ),
+      ];
+      widget.onChanged(updated);
+      _emitBytes();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('تعذّر اختيار الصورة: $e', style: GoogleFonts.cairo()),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   void _addMockVoiceNote() {
@@ -62,7 +118,9 @@ class _MediaAttachmentSectionState extends State<MediaAttachmentSection> {
   }
 
   void _remove(String id) {
+    _pendingBytes.remove(id);
     widget.onChanged(widget.attachments.where((a) => a.id != id).toList());
+    _emitBytes();
   }
 
   @override
@@ -99,7 +157,7 @@ class _MediaAttachmentSectionState extends State<MediaAttachmentSection> {
                 icon: Icons.add_photo_alternate_rounded,
                 label: 'إضافة صورة',
                 gradient: AppColors.gradientBlue,
-                onTap: _addMockImage,
+                onTap: _pickImage,
               ),
             ),
             const SizedBox(width: 10),
@@ -119,6 +177,7 @@ class _MediaAttachmentSectionState extends State<MediaAttachmentSection> {
           const SizedBox(height: 14),
           ...widget.attachments.map((a) => _AttachmentItem(
                 attachment: a,
+                previewBytes: _pendingBytes[a.id],
                 onRemove: () => _remove(a.id),
               )),
         ],
@@ -180,9 +239,14 @@ class _AddButton extends StatelessWidget {
 
 class _AttachmentItem extends StatelessWidget {
   final MediaAttachment attachment;
+  final Uint8List? previewBytes;
   final VoidCallback onRemove;
 
-  const _AttachmentItem({required this.attachment, required this.onRemove});
+  const _AttachmentItem({
+    required this.attachment,
+    required this.onRemove,
+    this.previewBytes,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -201,18 +265,29 @@ class _AttachmentItem extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              gradient: isVoice ? AppColors.gradientPurple : AppColors.gradientBlue,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(
-              isVoice ? Icons.mic_rounded : Icons.image_rounded,
-              color: Colors.white,
-              size: 18,
-            ),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: (!isVoice && previewBytes != null)
+                ? Image.memory(
+                    previewBytes!,
+                    width: 38,
+                    height: 38,
+                    fit: BoxFit.cover,
+                  )
+                : Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      gradient:
+                          isVoice ? AppColors.gradientPurple : AppColors.gradientBlue,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      isVoice ? Icons.mic_rounded : Icons.image_rounded,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                  ),
           ),
           const SizedBox(width: 10),
           Expanded(

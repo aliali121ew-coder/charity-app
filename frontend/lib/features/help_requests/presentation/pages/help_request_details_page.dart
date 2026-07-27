@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart' as intl;
+import 'package:charity_app/core/supabase/supabase_storage_service.dart';
 import 'package:charity_app/core/theme/app_colors.dart';
 import 'package:charity_app/features/help_requests/domain/entities/request_type.dart';
 import 'package:charity_app/features/help_requests/providers/help_requests_provider.dart';
@@ -35,10 +36,19 @@ class HelpRequestDetailsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    // نراقب الحالة (لا المزوّد فقط) حتى تُعاد البناء بعد اكتمال التحميل غير المتزامن
+    // من Supabase فيتوفّر العنصر في state.all — مطابقةً لـ works/post_detail_page.
+    final state = ref.watch(helpRequestsProvider);
     final request =
-        ref.watch(helpRequestsProvider.notifier).getById(requestId);
+        ref.read(helpRequestsProvider.notifier).getById(requestId);
 
     if (request == null) {
+      // ما زالت البيانات قيد التحميل: أظهر مؤشّراً بدل "غير موجود".
+      if (state.isLoading) {
+        return const Scaffold(
+          body: Center(child: CircularProgressIndicator()),
+        );
+      }
       return Scaffold(
         appBar: AppBar(
           leading: IconButton(
@@ -289,23 +299,28 @@ class HelpRequestDetailsPage extends ConsumerWidget {
                             ),
                             child: Row(
                               children: [
-                                Container(
-                                  width: 34,
-                                  height: 34,
-                                  decoration: BoxDecoration(
-                                    gradient: isVoice
-                                        ? AppColors.gradientPurple
-                                        : AppColors.gradientBlue,
-                                    borderRadius: BorderRadius.circular(8),
+                                if (!isVoice &&
+                                    (a.mockPath?.isNotEmpty ?? false) &&
+                                    !(a.mockPath!.startsWith('local:')))
+                                  _HelpMediaThumbnail(storagePath: a.mockPath!)
+                                else
+                                  Container(
+                                    width: 34,
+                                    height: 34,
+                                    decoration: BoxDecoration(
+                                      gradient: isVoice
+                                          ? AppColors.gradientPurple
+                                          : AppColors.gradientBlue,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Icon(
+                                      isVoice
+                                          ? Icons.mic_rounded
+                                          : Icons.image_rounded,
+                                      color: Colors.white,
+                                      size: 16,
+                                    ),
                                   ),
-                                  child: Icon(
-                                    isVoice
-                                        ? Icons.mic_rounded
-                                        : Icons.image_rounded,
-                                    color: Colors.white,
-                                    size: 16,
-                                  ),
-                                ),
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Text(
@@ -516,6 +531,58 @@ class _MetaTag extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// صورة مصغّرة لمرفق محفوظ في bucket خاصّ (help-media).
+///
+/// يجلب رابطاً موقّعاً مؤقّتاً عبر [SupabaseStorageService.signedUrl] ثمّ يعرض
+/// الصورة عبر [Image.network]. يعرض أيقونة عنصر نائب أثناء التحميل أو عند الفشل
+/// (مثلاً لعدم وجود جلسة Supabase Auth أو انتهاء صلاحية الرابط).
+class _HelpMediaThumbnail extends StatelessWidget {
+  final String storagePath;
+
+  const _HelpMediaThumbnail({required this.storagePath});
+
+  @override
+  Widget build(BuildContext context) {
+    Widget placeholder({bool broken = false}) => Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            gradient: AppColors.gradientBlue,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            broken ? Icons.broken_image_rounded : Icons.image_rounded,
+            color: Colors.white,
+            size: 16,
+          ),
+        );
+
+    return FutureBuilder<String>(
+      future: const SupabaseStorageService()
+          .signedUrl('help-media', storagePath),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return placeholder();
+        }
+        final url = snapshot.data;
+        if (snapshot.hasError || url == null || url.isEmpty) {
+          return placeholder(broken: true);
+        }
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.network(
+            url,
+            width: 34,
+            height: 34,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => placeholder(broken: true),
+          ),
+        );
+      },
     );
   }
 }

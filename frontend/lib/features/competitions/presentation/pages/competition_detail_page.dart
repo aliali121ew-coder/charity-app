@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:charity_app/core/theme/app_colors.dart';
 import 'package:charity_app/shared/providers/app_providers.dart';
-import 'package:charity_app/features/competitions/data/mock_competitions_data.dart';
+import 'package:charity_app/shared/providers/supabase_repository_providers.dart';
 import 'package:charity_app/features/competitions/domain/competition_models.dart';
 import 'package:charity_app/features/competitions/presentation/providers/competitions_provider.dart';
 import 'package:charity_app/features/competitions/presentation/providers/points_provider.dart';
@@ -356,16 +356,19 @@ class _ProgressCard extends StatelessWidget {
 }
 
 // ── النتائج / الفائزون + رتبتك ─────────────────────────────────────────────────
-class _WinnersSection extends StatelessWidget {
+class _WinnersSection extends ConsumerWidget {
   final Competition c;
   final CompetitionEntry entry;
   const _WinnersSection({required this.c, required this.entry});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    // قائمة الفائزين (أعلى winnerCount إنجازاً) — من لوحة الصدارة كعرض تمثيلي.
-    final winners = mockLeaderboard.take(c.winnerCount).toList();
+    // قائمة الفائزين (أعلى winnerCount إنجازاً) — من لوحة الصدارة عبر Supabase
+    // (leaderboardProvider). أثناء التحميل/عند الخطأ نعرض القائمة فارغة بلا انهيار.
+    final winners = ref
+        .watch(leaderboardProvider)
+        .maybeWhen(data: (list) => list.take(c.winnerCount).toList(), orElse: () => const <Participant>[]);
     final myRank = myRankIn(c, entry);
     final won = isWinnerOf(c, entry);
 

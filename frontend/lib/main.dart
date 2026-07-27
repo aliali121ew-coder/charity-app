@@ -5,6 +5,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:charity_app/app.dart';
 import 'package:charity_app/shared/providers/app_providers.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:charity_app/core/supabase/supabase_config.dart';
+import 'package:charity_app/core/supabase/secure_local_storage.dart';
+import 'package:charity_app/core/offline/offline_store.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,6 +39,18 @@ void main() async {
 
   // Initialize SharedPreferences
   final sharedPreferences = await SharedPreferences.getInstance();
+
+  // Initialize Supabase (اضبط المفاتيح عبر --dart-define أو في SupabaseConfig)
+  await Supabase.initialize(
+    url: SupabaseConfig.url,
+    anonKey: SupabaseConfig.anonKey,
+    authOptions: FlutterAuthClientOptions(
+      localStorage: SecureLocalStorage(),
+    ),
+  );
+
+  // Initialize the offline persistence layer (Hive cache + write outbox).
+  await OfflineStore.instance.init();
 
   runApp(
     ProviderScope(

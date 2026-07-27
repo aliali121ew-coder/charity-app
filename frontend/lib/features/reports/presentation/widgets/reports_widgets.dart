@@ -29,14 +29,10 @@ class _QuickStat extends StatelessWidget {
 class _ReportCardWidget extends StatelessWidget {
   final _ReportCard report;
   final bool isDark;
-  final MockSubscribersRepository subsRepo;
-  final MockFamiliesRepository famRepo;
-  final MockAidRepository aidRepo;
   final List subs, families, aids;
 
   const _ReportCardWidget({
     required this.report, required this.isDark,
-    required this.subsRepo, required this.famRepo, required this.aidRepo,
     required this.subs, required this.families, required this.aids,
   });
 
@@ -204,7 +200,6 @@ class _ReportCardWidget extends StatelessWidget {
       backgroundColor: Colors.transparent,
       builder: (_) => _ReportDetailSheet(
         report: report, isDark: isDark,
-        subsRepo: subsRepo, famRepo: famRepo, aidRepo: aidRepo,
         subs: subs, families: families, aids: aids,
       ),
     );
