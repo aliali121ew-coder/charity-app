@@ -1,4 +1,6 @@
+// Offline-aware: read-through Hive cache + write outbox (see core/offline).
 import 'package:charity_app/core/supabase/supabase_config.dart';
+import 'package:charity_app/core/offline/offline_store.dart';
 import 'package:charity_app/shared/models/subscriber_model.dart';
 
 /// مستودع المشتركين عبر Supabase — يحلّ محل MockSubscribersRepository.
@@ -43,9 +45,22 @@ class SupabaseSubscribersRepository {
         'subscription_category': s.subscriptionCategory,
       };
 
+  static const _cacheKey = 'subscribers';
+
   Future<List<SubscriberModel>> getAll() async {
-    final rows = await supabase.from(_table).select().order('registration_date', ascending: false);
-    return rows.map((e) => _map(e)).toList();
+    try {
+      final rows =
+          await supabase.from(_table).select().order('registration_date', ascending: false);
+      await OfflineStore.instance
+          .cacheRows(_cacheKey, List<Map<String, dynamic>>.from(rows));
+      return rows.map((e) => _map(e)).toList();
+    } catch (e) {
+      final cached = OfflineStore.instance.readRows(_cacheKey);
+      if (cached != null) {
+        return cached.map((e) => _map(Map<String, dynamic>.from(e))).toList();
+      }
+      rethrow;
+    }
   }
 
   Future<SubscriberModel?> getById(String id) async {
@@ -75,16 +90,52 @@ class SupabaseSubscribersRepository {
 
   /// إنشاء مشترك — نترك id لتوليده في القاعدة (uuid) ونعيد الصف الناتج.
   Future<SubscriberModel> create(SubscriberModel s) async {
-    final row = await supabase.from(_table).insert(_toRow(s)).select().single();
-    return _map(row);
+    try {
+      final row = await supabase.from(_table).insert(_toRow(s)).select().single();
+      return _map(row);
+    } catch (e) {
+      if (OfflineStore.isOfflineError(e)) {
+        await OfflineStore.instance
+            .enqueue(table: _table, action: 'insert', payload: _toRow(s));
+        return s; // optimistic
+      }
+      rethrow;
+    }
   }
 
   Future<SubscriberModel> update(SubscriberModel s) async {
-    final row = await supabase.from(_table).update(_toRow(s)).eq('id', s.id).select().single();
-    return _map(row);
+    try {
+      final row = await supabase.from(_table).update(_toRow(s)).eq('id', s.id).select().single();
+      return _map(row);
+    } catch (e) {
+      if (OfflineStore.isOfflineError(e)) {
+        await OfflineStore.instance.enqueue(
+          table: _table,
+          action: 'update',
+          payload: _toRow(s),
+          matchColumn: 'id',
+          matchValue: s.id,
+        );
+        return s; // optimistic
+      }
+      rethrow;
+    }
   }
 
   Future<void> delete(String id) async {
-    await supabase.from(_table).delete().eq('id', id);
+    try {
+      await supabase.from(_table).delete().eq('id', id);
+    } catch (e) {
+      if (OfflineStore.isOfflineError(e)) {
+        await OfflineStore.instance.enqueue(
+          table: _table,
+          action: 'delete',
+          matchColumn: 'id',
+          matchValue: id,
+        );
+        return; // optimistic
+      }
+      rethrow;
+    }
   }
 }

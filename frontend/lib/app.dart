@@ -5,12 +5,16 @@ import 'package:charity_app/core/theme/app_theme.dart';
 import 'package:charity_app/core/localization/app_localizations.dart';
 import 'package:charity_app/core/router/app_router.dart';
 import 'package:charity_app/shared/providers/app_providers.dart';
+import 'package:charity_app/core/offline/sync_service.dart';
 
 class CharityApp extends ConsumerWidget {
   const CharityApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Keep the offline outbox sync alive: flushes on startup + every offline→online flip.
+    ref.watch(syncTriggerProvider);
+
     final router = ref.watch(routerProvider);
     final locale = ref.watch(localeProvider);
     final themeMode = ref.watch(themeModeProvider);
