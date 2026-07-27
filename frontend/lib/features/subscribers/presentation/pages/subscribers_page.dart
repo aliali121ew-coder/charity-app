@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:charity_app/core/theme/app_colors.dart';
 import 'package:charity_app/shared/models/family_model.dart';
 import 'package:charity_app/shared/providers/repository_providers.dart';
+import 'package:charity_app/shared/providers/supabase_repository_providers.dart';
 
 part '../widgets/subscribers_header_cards.dart';
 part '../widgets/subscribers_view_sheet.dart';
@@ -76,17 +77,9 @@ class SubscribersPage extends ConsumerStatefulWidget {
 }
 
 class _SubscribersPageState extends ConsumerState<SubscribersPage> {
-  late final _repo = ref.read(familiesRepositoryProvider);
   final _searchController = TextEditingController();
   FamilyStatus? _statusFilter;
   String _searchQuery = '';
-  late List<FamilyModel> _localFamilies;
-
-  @override
-  void initState() {
-    super.initState();
-    _localFamilies = _repo.getAll();
-  }
 
   @override
   void dispose() {
@@ -94,8 +87,8 @@ class _SubscribersPageState extends ConsumerState<SubscribersPage> {
     super.dispose();
   }
 
-  List<FamilyModel> get _filtered {
-    var list = List<FamilyModel>.from(_localFamilies);
+  List<FamilyModel> _applyFilters(List<FamilyModel> source) {
+    var list = List<FamilyModel>.from(source);
     if (_statusFilter != null) {
       list = list.where((f) => f.status == _statusFilter).toList();
     }
@@ -112,11 +105,9 @@ class _SubscribersPageState extends ConsumerState<SubscribersPage> {
     return list;
   }
 
-  void _updateFamily(FamilyModel updated) {
-    setState(() {
-      final idx = _localFamilies.indexWhere((f) => f.id == updated.id);
-      if (idx != -1) _localFamilies[idx] = updated;
-    });
+  Future<void> _updateFamily(FamilyModel updated) async {
+    await ref.read(supabaseFamiliesRepositoryProvider).update(updated);
+    ref.invalidate(familiesListProvider);
   }
 
   void _showFamilyView(BuildContext context, FamilyModel family, bool isDark) {
@@ -141,12 +132,39 @@ class _SubscribersPageState extends ConsumerState<SubscribersPage> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final all = _localFamilies;
-    final eligibleCount = all.where((f) => f.status == FamilyStatus.eligible).length;
-    final totalMembers = all.fold<int>(0, (sum, f) => sum + f.membersCount);
-    final filtered = _filtered;
+    final asyncFamilies = ref.watch(familiesListProvider);
 
-    return Column(
+    return asyncFamilies.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.cloud_off_rounded, size: 48, color: AppColors.error),
+              const SizedBox(height: 12),
+              Text(
+                'تعذّر تحميل البيانات',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.cairo(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () => ref.invalidate(familiesListProvider),
+                child: const Text('إعادة المحاولة'),
+              ),
+            ],
+          ),
+        ),
+      ),
+      data: (all) {
+        final eligibleCount =
+            all.where((f) => f.status == FamilyStatus.eligible).length;
+        final totalMembers = all.fold<int>(0, (sum, f) => sum + f.membersCount);
+        final filtered = _applyFilters(all);
+
+        return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // ── Header ───────────────────────────────────────────────────────────
@@ -204,6 +222,8 @@ class _SubscribersPageState extends ConsumerState<SubscribersPage> {
                 }),
         ),
       ],
+        );
+      },
     );
   }
 
@@ -223,9 +243,8 @@ class _SubscribersPageState extends ConsumerState<SubscribersPage> {
       builder: (_) => _AddFamilySheet(isDark: isDark),
     );
     if (newFamily != null) {
-      setState(() {
-        _localFamilies.insert(0, newFamily);
-      });
+      await ref.read(supabaseFamiliesRepositoryProvider).create(newFamily);
+      ref.invalidate(familiesListProvider);
     }
   }
 }

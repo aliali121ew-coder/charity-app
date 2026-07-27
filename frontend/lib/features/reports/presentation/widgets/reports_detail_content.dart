@@ -3,14 +3,10 @@ part of '../pages/reports_page.dart';
 class _ReportDetailSheet extends StatelessWidget {
   final _ReportCard report;
   final bool isDark;
-  final MockSubscribersRepository subsRepo;
-  final MockFamiliesRepository famRepo;
-  final MockAidRepository aidRepo;
   final List subs, families, aids;
 
   const _ReportDetailSheet({
     required this.report, required this.isDark,
-    required this.subsRepo, required this.famRepo, required this.aidRepo,
     required this.subs, required this.families, required this.aids,
   });
 
@@ -68,9 +64,9 @@ class _ReportDetailSheet extends StatelessWidget {
         return _OverdueReportContent(subs: subs, isDark: isDark);
       case 'expenses':
       case 'income':
-        return _MonthlyChartContent(aidRepo: aidRepo, isDark: isDark, isIncome: report.id == 'income');
+        return _MonthlyChartContent(aids: aids, isDark: isDark, isIncome: report.id == 'income');
       case 'aid':
-        return _AidReportContent(aidRepo: aidRepo, aids: aids, isDark: isDark);
+        return _AidReportContent(aids: aids, isDark: isDark);
       case 'funds':
         return _FundsReportContent(families: families, isDark: isDark);
       case 'works':
@@ -140,13 +136,25 @@ class _OverdueReportContent extends StatelessWidget {
 }
 
 class _MonthlyChartContent extends StatelessWidget {
-  final MockAidRepository aidRepo;
+  final List aids;
   final bool isDark, isIncome;
-  const _MonthlyChartContent({required this.aidRepo, required this.isDark, required this.isIncome});
+  const _MonthlyChartContent({required this.aids, required this.isDark, required this.isIncome});
+
+  // آخر 6 أشهر (نفس منطق المستودع، محسوبة على العميل).
+  List<Map<String, dynamic>> _monthlyTotals() {
+    final now = DateTime.now();
+    return List.generate(6, (i) {
+      final month = DateTime(now.year, now.month - (5 - i));
+      final total = aids
+          .where((a) => a.date.month == month.month && a.date.year == month.year)
+          .fold(0.0, (sum, a) => sum + (a.amount as double));
+      return {'month': month, 'total': total};
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    final monthly = aidRepo.getMonthlyTotals();
+    final monthly = _monthlyTotals();
     final color = isIncome ? const Color(0xFF7C3AED) : const Color(0xFF00C9A7);
     return Column(
       children: [
@@ -200,10 +208,9 @@ class _MonthlyChartContent extends StatelessWidget {
 }
 
 class _AidReportContent extends StatelessWidget {
-  final MockAidRepository aidRepo;
   final List aids;
   final bool isDark;
-  const _AidReportContent({required this.aidRepo, required this.aids, required this.isDark});
+  const _AidReportContent({required this.aids, required this.isDark});
 
   @override
   Widget build(BuildContext context) {

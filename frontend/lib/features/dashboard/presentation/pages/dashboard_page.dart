@@ -10,13 +10,11 @@ import 'package:charity_app/shared/widgets/kpi_stat_card.dart';
 import 'package:charity_app/shared/widgets/section_header.dart';
 import 'package:charity_app/shared/widgets/chart_card.dart';
 import 'package:charity_app/shared/widgets/activity_log_item.dart';
-import 'package:charity_app/features/subscribers/data/mock_subscribers_repository.dart';
-import 'package:charity_app/features/families/data/mock_families_repository.dart';
-import 'package:charity_app/features/aid/data/mock_aid_repository.dart';
-import 'package:charity_app/features/logs/data/mock_logs_repository.dart';
+import 'package:charity_app/shared/providers/supabase_repository_providers.dart';
 import 'package:charity_app/shared/models/subscriber_model.dart';
 import 'package:charity_app/shared/models/aid_model.dart';
 import 'package:charity_app/shared/models/family_model.dart';
+import 'package:charity_app/shared/models/log_model.dart';
 import 'package:charity_app/shared/widgets/status_chip.dart';
 import 'package:intl/intl.dart';
 
@@ -59,21 +57,49 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
 class _DashboardContent extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // ── Data sources (Supabase via FutureProviders) ──────────────────────────
+    final asyncSubscribers = ref.watch(subscribersListProvider);
+    final asyncFamilies = ref.watch(familiesListProvider);
+    final asyncAid = ref.watch(aidListProvider);
+    final asyncLogs = ref.watch(logsListProvider);
+
+    // Show a single spinner/error until all four sources resolve.
+    final asyncs = [asyncSubscribers, asyncFamilies, asyncAid, asyncLogs];
+    if (asyncs.any((a) => a.isLoading)) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    final firstError = asyncs.firstWhere((a) => a.hasError, orElse: () => asyncSubscribers);
+    if (firstError.hasError) {
+      return _DashboardError(
+        onRetry: () {
+          ref.invalidate(subscribersListProvider);
+          ref.invalidate(familiesListProvider);
+          ref.invalidate(aidListProvider);
+          ref.invalidate(logsListProvider);
+        },
+      );
+    }
+
+    final subscribers = asyncSubscribers.value ?? const <SubscriberModel>[];
+    final families = asyncFamilies.value ?? const <FamilyModel>[];
+    final aidRecords = asyncAid.value ?? const <AidModel>[];
+    final logs = asyncLogs.value ?? const <LogModel>[];
+
+    return _buildContent(context, subscribers, families, aidRecords, logs);
+  }
+
+  Widget _buildContent(
+    BuildContext context,
+    List<SubscriberModel> subscribers,
+    List<FamilyModel> families,
+    List<AidModel> aidRecords,
+    List<LogModel> logs,
+  ) {
     final l10n = context.l10n;
-
-    final subscribersRepo = MockSubscribersRepository();
-    final familiesRepo = MockFamiliesRepository();
-    final aidRepo = MockAidRepository();
-    final logsRepo = MockLogsRepository();
-
-    final subscribers = subscribersRepo.getAll();
-    final families = familiesRepo.getAll();
-    final aidRecords = aidRepo.getAll();
-    final logs = logsRepo.getAll();
 
     final activeSubscribers = subscribers.where((s) => s.status == SubscriberStatus.active).length;
     final pendingAid = aidRecords.where((a) => a.status == AidStatus.pending).length;
-    final totalAmount = aidRepo.getTotalAmount();
+    final totalAmount = aidRecords.fold<double>(0, (sum, a) => sum + a.amount);
     final eligibleFamilies = families.where((f) => f.status == FamilyStatus.eligible).length;
 
     return SingleChildScrollView(
@@ -181,7 +207,7 @@ class _DashboardContent extends ConsumerWidget {
                       flex: 3,
                       child: SizedBox(
                         height: 280,
-                        child: _AidTrendChart(aidRepo: aidRepo),
+                        child: _AidTrendChart(aidRecords: aidRecords),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -189,7 +215,7 @@ class _DashboardContent extends ConsumerWidget {
                       flex: 2,
                       child: SizedBox(
                         height: 280,
-                        child: _AidCategoriesChart(aidRepo: aidRepo, l10n: l10n),
+                        child: _AidCategoriesChart(aidRecords: aidRecords, l10n: l10n),
                       ),
                     ),
                   ],
@@ -197,9 +223,9 @@ class _DashboardContent extends ConsumerWidget {
               }
               return Column(
                 children: [
-                  SizedBox(height: 260, child: _AidTrendChart(aidRepo: aidRepo)),
+                  SizedBox(height: 260, child: _AidTrendChart(aidRecords: aidRecords)),
                   const SizedBox(height: 12),
-                  SizedBox(height: 260, child: _AidCategoriesChart(aidRepo: aidRepo, l10n: l10n)),
+                  SizedBox(height: 260, child: _AidCategoriesChart(aidRecords: aidRecords, l10n: l10n)),
                 ],
               );
             },
@@ -252,6 +278,38 @@ class _DashboardContent extends ConsumerWidget {
   }
 }
 
+// ── Error State ────────────────────────────────────────────────────────────────
+class _DashboardError extends StatelessWidget {
+  final VoidCallback onRetry;
+  const _DashboardError({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.cloud_off_rounded, size: 48, color: AppColors.error),
+            const SizedBox(height: 12),
+            Text(
+              'تعذّر تحميل البيانات',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.cairo(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: onRetry,
+              child: const Text('إعادة المحاولة'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ── KPI Row helper ─────────────────────────────────────────────────────────────
 class _KpiRow extends StatelessWidget {
   final List<Widget> children;
@@ -289,12 +347,24 @@ class _KpiRow extends StatelessWidget {
 
 // ── Aid Trend Chart ─────────────────────────────────────────────────────────────
 class _AidTrendChart extends StatelessWidget {
-  final MockAidRepository aidRepo;
-  const _AidTrendChart({required this.aidRepo});
+  final List<AidModel> aidRecords;
+  const _AidTrendChart({required this.aidRecords});
+
+  // آخر 6 أشهر (نفس منطق المستودع، محسوبة على العميل).
+  List<Map<String, dynamic>> _monthlyTotals() {
+    final now = DateTime.now();
+    return List.generate(6, (i) {
+      final month = DateTime(now.year, now.month - (5 - i));
+      final total = aidRecords
+          .where((a) => a.date.month == month.month && a.date.year == month.year)
+          .fold(0.0, (sum, a) => sum + a.amount);
+      return {'month': month, 'total': total};
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    final monthly = aidRepo.getMonthlyTotals();
+    final monthly = _monthlyTotals();
     final maxY = monthly.map((m) => m['total'] as double).fold(0.0, (a, b) => a > b ? a : b);
 
     final spots = monthly.asMap().entries.map((e) {
@@ -385,9 +455,9 @@ class _AidTrendChart extends StatelessWidget {
 
 // ── Aid Categories Donut Chart ─────────────────────────────────────────────────
 class _AidCategoriesChart extends StatefulWidget {
-  final MockAidRepository aidRepo;
+  final List<AidModel> aidRecords;
   final AppLocalizations l10n;
-  const _AidCategoriesChart({required this.aidRepo, required this.l10n});
+  const _AidCategoriesChart({required this.aidRecords, required this.l10n});
 
   @override
   State<_AidCategoriesChart> createState() => _AidCategoriesChartState();
@@ -398,7 +468,10 @@ class _AidCategoriesChartState extends State<_AidCategoriesChart> {
 
   @override
   Widget build(BuildContext context) {
-    final counts = widget.aidRepo.getCountByType();
+    final counts = <AidType, int>{};
+    for (final a in widget.aidRecords) {
+      counts[a.type] = (counts[a.type] ?? 0) + 1;
+    }
     final total = counts.values.fold(0, (a, b) => a + b);
 
     final chartData = [

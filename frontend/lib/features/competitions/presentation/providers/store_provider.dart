@@ -1,17 +1,37 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:uuid/uuid.dart';
-import 'package:charity_app/features/competitions/data/mock_competitions_data.dart';
+import 'package:charity_app/features/competitions/data/supabase_competitions_repository.dart';
+import 'package:charity_app/features/competitions/data/supabase_engagement_repository.dart';
 import 'package:charity_app/features/competitions/domain/competition_models.dart';
 import 'package:charity_app/features/competitions/presentation/providers/points_provider.dart';
 
-const _uuid = Uuid();
-
 // ════════════════════════════════════════════════════════════════════════════
-//  جوائز المتجر — يديرها المشرف (إضافة/تعديل/حذف).
+//  جوائز المتجر — القائمة تُقرأ من Supabase (getPrizes)، والإدارة (إضافة/تعديل/
+//  حذف) تبقى محلية تفاؤلية كما كانت. نفس واجهة الـ notifier تماماً
+//  (List<Prize> + upsert/remove) حتى لا تتغيّر prizes_page/create_store_prize_page.
+//  (تُترك كما هي حسب نطاق المهمة — هذا الجزء مربوط بـ Supabase مسبقاً.)
 // ════════════════════════════════════════════════════════════════════════════
 class StorePrizesNotifier extends StateNotifier<List<Prize>> {
-  StorePrizesNotifier() : super(seedStorePrizes());
+  final SupabaseCompetitionsRepository _repo = SupabaseCompetitionsRepository();
 
+  StorePrizesNotifier() : super(const []) {
+    _load();
+  }
+
+  /// تحميل جوائز المتجر من Supabase (READ فقط) — يبدأ فارغاً ثم يملأ الحالة.
+  Future<void> _load() async {
+    try {
+      state = await _repo.getPrizes();
+    } catch (_) {
+      // تعذّر الاتصال — نُبقي القائمة الحالية (فارغة) بدل الانهيار.
+    }
+  }
+
+  /// إعادة تحميل من الخادم (مفيدة للسحب-للتحديث).
+  Future<void> reload() => _load();
+
+  // TODO(supabase): upsert/remove/_decrementStock تبقى محلية (تفاؤلية) في هذه
+  // المهمة التي تُعيد ربط تفاعل النقاط/الاستبدال؛ إدارة الجوائز (كتابة prizes)
+  // خارج نطاقها.
   void upsert(Prize prize) {
     final idx = state.indexWhere((p) => p.id == prize.id);
     if (idx < 0) {
@@ -35,42 +55,62 @@ final storePrizesProvider =
         (ref) => StorePrizesNotifier());
 
 // ════════════════════════════════════════════════════════════════════════════
-//  سجل الاستبدال — منفصل عن "جوائزي".
-//  • المادية: تُولّد كود + QR، الحالة "بانتظار الاستلام"، وتُخصم النقاط عند
-//    تأكيد المشرف.
-//  • الرقمية: تُمنح فوراً وتُخصم النقاط مباشرة (لا استلام فعلي).
+//  سجل الاستبدال — مدعوم بـ Supabase.
+//  • القراءة: myRedemptions (سجل استبدالات المستخدم) عند الباني.
+//  • الاستبدال: RPC redeem_store_prize (عملية ذرّية في القاعدة: تحقّق المخزون +
+//    خصم النقاط + توليد كود + إدراج الصف). نفس التوقيع المتزامن redeem(Prize)
+//    الذي يُرجع String? (رسالة خطأ أو null) حتى لا تتغيّر prizes_page:
+//      - تحقّق أوّلي متزامن (مخزون/رصيد) لإرجاع الخطأ فوراً كما كان،
+//      - ثم استدعاء RPC في الخلفية مع تحديث تفاؤلي وإعادة تحميل.
+//  • confirmReceipt يبقى كما كان (خصم النقاط عبر userPointsProvider المدعوم
+//    بـ Supabase). تأكيد الاستلام الفعلي (status=received) عملية إدارية في
+//    القاعدة (سياسة sr_staff_update) خارج نطاق المستخدم المجتمعي.
+//  • بلا جلسة Supabase: القراءة تُرجع فارغاً؛ الاستبدال يبقى تحديثاً تفاؤلياً
+//    محلياً (RPC يرمي داخلياً) لإبقاء الواجهة قابلة للتجربة.
 // ════════════════════════════════════════════════════════════════════════════
 class StoreRedemptionsNotifier extends StateNotifier<List<StoreRedemption>> {
   final Ref _ref;
-  StoreRedemptionsNotifier(this._ref) : super(const []);
+  final SupabaseEngagementRepository _repo = SupabaseEngagementRepository();
 
-  /// يُرجع رسالة خطأ أو null عند النجاح.
+  StoreRedemptionsNotifier(this._ref) : super(const []) {
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      state = await _repo.myRedemptions();
+    } catch (_) {
+      // تعذّر الاتصال/لا جلسة — نُبقي القائمة الحالية بدل الانهيار.
+    }
+  }
+
+  /// إعادة تحميل سجل الاستبدال من الخادم.
+  Future<void> reload() => _load();
+
+  /// يُرجع رسالة خطأ أو null عند النجاح (تحقّق أوّلي متزامن كما كان).
   String? redeem(Prize prize) {
     if (prize.stock <= 0) return 'نفدت كمية هذه الجائزة';
 
-    final pointsNotifier = _ref.read(userPointsProvider.notifier);
     final balance = _ref.read(userPointsProvider);
-
-    if (prize.type == PrizeType.digital) {
-      // خصم فوري ومنح مباشر.
-      if (!pointsNotifier.deduct(prize.pointsCost)) {
-        return 'نقاطك غير كافية لاستبدال هذه الجائزة';
-      }
-      _ref.read(storePrizesProvider.notifier)._decrementStock(prize.id);
-      state = [_build(prize, ClaimStatus.received), ...state];
-      return null;
-    }
-
-    // مادية: لا خصم الآن — يجب أن يكون الرصيد كافياً وقت الاستبدال.
     if (balance < prize.pointsCost) {
       return 'نقاطك غير كافية لاستبدال هذه الجائزة';
     }
+
+    // تحديث تفاؤلي فوري (يطابق سلوك الواجهة السابق) ثم مزامنة عبر RPC.
     _ref.read(storePrizesProvider.notifier)._decrementStock(prize.id);
-    state = [_build(prize, ClaimStatus.pending), ...state];
+    // الرقمية تُمنح فوراً (received)، المادية بانتظار الاستلام (pending).
+    final status =
+        prize.type == PrizeType.digital ? ClaimStatus.received : ClaimStatus.pending;
+    state = [_buildOptimistic(prize, status), ...state];
+    // الخصم يمرّ عبر القاعدة داخل redeem_store_prize (award_points بداخله)؛ لذا
+    // نُطبّق خصماً محلياً للعرض فقط دون RPC ثانٍ لتفادي الخصم المزدوج على الخادم،
+    // ثم نزامن الرصيد الحقيقي بعد نجاح RPC الاستبدال في _syncRedeem.
+    _ref.read(userPointsProvider.notifier).applyLocalDelta(-prize.pointsCost);
+    _syncRedeem(prize.id);
     return null;
   }
 
-  /// تأكيد الاستلام (مشرف) للجائزة المادية — يخصم النقاط.
+  /// تأكيد الاستلام (مشرف) للجائزة المادية — يخصم النقاط محلياً/في القاعدة.
   String? confirmReceipt(String redemptionId) {
     final idx = state.indexWhere((r) => r.id == redemptionId);
     if (idx < 0) return 'السجل غير موجود';
@@ -84,14 +124,28 @@ class StoreRedemptionsNotifier extends StateNotifier<List<StoreRedemption>> {
     return null;
   }
 
-  StoreRedemption _build(Prize prize, ClaimStatus status) {
-    final ts = DateTime.now().millisecondsSinceEpoch.toRadixString(36).toUpperCase();
+  /// استدعاء RPC الاستبدال في الخلفية ثم إعادة تحميل السجل الحقيقي والرصيد.
+  Future<void> _syncRedeem(String prizeId) async {
+    try {
+      await _repo.redeem(prizeId);
+      await _load();
+      await _ref.read(userPointsProvider.notifier).reload();
+    } catch (_) {
+      // بلا جلسة أو نفاد المخزون على الخادم — نُبقي التحديث التفاؤلي المحلي.
+    }
+  }
+
+  /// بناء صف استبدال تفاؤلي محلي (يُستبدل بصف القاعدة بعد إعادة التحميل).
+  StoreRedemption _buildOptimistic(Prize prize, ClaimStatus status) {
+    final ts =
+        DateTime.now().millisecondsSinceEpoch.toRadixString(36).toUpperCase();
     return StoreRedemption(
-      id: _uuid.v4(),
+      id: 'local-$ts',
       prizeTitle: prize.title,
       type: prize.type,
       pointsCost: prize.pointsCost,
-      claimCode: 'RDM-$ts-${_uuid.v4().substring(0, 4).toUpperCase()}',
+      claimCode:
+          'ST-${_ref.hashCode.toRadixString(16).toUpperCase()}$ts'.substring(0, 11),
       status: status,
       redeemedAt: DateTime.now(),
       deadline: DateTime.now().add(const Duration(days: 14)),

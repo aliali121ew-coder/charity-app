@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:charity_app/core/supabase/supabase_storage_service.dart';
 import 'package:charity_app/shared/models/work_post_model.dart';
 import 'package:charity_app/shared/providers/app_providers.dart';
 import 'package:charity_app/features/works/presentation/providers/works_provider.dart';
@@ -25,6 +27,7 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
 
   WorkCategory _selectedCategory = WorkCategory.general;
   bool _isSubmitting = false;
+  bool _isPickingImage = false;
 
   @override
   void dispose() {
@@ -67,6 +70,46 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
     if (mounted) {
       setState(() => _isSubmitting = false);
       context.pop();
+    }
+  }
+
+  /// يلتقط صورة من الجهاز ويرفعها إلى bucket العام work-media، ثمّ يضع الرابط
+  /// العامّ الناتج في حقل رابط الصورة. خيار لصق الرابط اليدويّ يبقى يعمل.
+  ///
+  /// الرفع يتطلّب جلسة Supabase Auth لموظّف (RLS: is_staff()). عند غياب الجلسة
+  /// أو فشل الرفع نُظهر رسالة عربيّة لطيفة دون انهيار.
+  Future<void> _pickAndUploadImage() async {
+    if (_isPickingImage) return;
+    try {
+      final XFile? picked = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 70,
+      );
+      if (picked == null) return; // ألغى المستخدم الاختيار
+
+      setState(() => _isPickingImage = true);
+      final bytes = await picked.readAsBytes();
+
+      const storage = SupabaseStorageService();
+      final storedPath = await storage.uploadWorkImage(bytes, picked.name);
+      final url = storage.publicUrl('work-media', storedPath);
+
+      if (!mounted) return;
+      setState(() {
+        _imageUrlCtrl.text = url;
+        _isPickingImage = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isPickingImage = false);
+      final msg = e is StateError
+          ? e.message
+          : 'تعذّر رفع الصورة (تحقّق من صلاحيات الموظّف وتسجيل الدخول)';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(msg, style: GoogleFonts.cairo()),
+        backgroundColor: const Color(0xFFEF4444),
+        behavior: SnackBarBehavior.floating,
+      ));
     }
   }
 
@@ -149,6 +192,42 @@ class _CreatePostPageState extends ConsumerState<CreatePostPage> {
                     isDark: isDark,
                     prefixIcon: Icons.image_rounded,
                     keyboardType: TextInputType.url,
+                  ),
+                  const SizedBox(height: 10),
+                  // زر اختيار صورة من الجهاز ورفعها إلى work-media.
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _isPickingImage ? null : _pickAndUploadImage,
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        side: const BorderSide(color: Color(0xFF7C3AED)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      icon: _isPickingImage
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Color(0xFF7C3AED),
+                              ),
+                            )
+                          : const Icon(Icons.photo_library_rounded,
+                              size: 18, color: Color(0xFF7C3AED)),
+                      label: Text(
+                        _isPickingImage
+                            ? 'جاري رفع الصورة...'
+                            : 'اختر صورة من الجهاز',
+                        style: GoogleFonts.cairo(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF7C3AED),
+                        ),
+                      ),
+                    ),
                   ),
                   if (_imageUrlCtrl.text.isNotEmpty)
                     Padding(

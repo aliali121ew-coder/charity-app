@@ -5,10 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:charity_app/core/theme/app_colors.dart';
 import 'package:charity_app/shared/widgets/section_header.dart';
 import 'package:charity_app/shared/widgets/chart_card.dart';
-import 'package:charity_app/features/subscribers/data/mock_subscribers_repository.dart';
-import 'package:charity_app/features/families/data/mock_families_repository.dart';
-import 'package:charity_app/features/aid/data/mock_aid_repository.dart';
-import 'package:charity_app/shared/providers/repository_providers.dart';
+import 'package:charity_app/shared/providers/supabase_repository_providers.dart';
 import 'package:charity_app/shared/models/aid_model.dart';
 import 'package:charity_app/shared/models/subscriber_model.dart';
 import 'package:charity_app/shared/models/family_model.dart';
@@ -40,16 +37,33 @@ class ReportsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final subsRepo = ref.read(subscribersRepositoryProvider);
-    final famRepo = ref.read(familiesRepositoryProvider);
-    final aidRepo = ref.read(aidRepositoryProvider);
-    final subs = subsRepo.getAll();
-    final families = famRepo.getAll();
-    final aids = aidRepo.getAll();
+    // ── Data sources (Supabase via FutureProviders) ──────────────────────────
+    final asyncSubs = ref.watch(subscribersListProvider);
+    final asyncFamilies = ref.watch(familiesListProvider);
+    final asyncAids = ref.watch(aidListProvider);
+
+    // Single spinner/error until all three sources resolve.
+    final asyncs = [asyncSubs, asyncFamilies, asyncAids];
+    if (asyncs.any((a) => a.isLoading)) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (asyncs.any((a) => a.hasError)) {
+      return _ReportsError(
+        onRetry: () {
+          ref.invalidate(subscribersListProvider);
+          ref.invalidate(familiesListProvider);
+          ref.invalidate(aidListProvider);
+        },
+      );
+    }
+
+    final subs = asyncSubs.value ?? const <SubscriberModel>[];
+    final families = asyncFamilies.value ?? const <FamilyModel>[];
+    final aids = asyncAids.value ?? const <AidModel>[];
 
     final activeSubs = subs.where((s) => s.status == SubscriberStatus.active).length;
     final eligibleFam = families.where((f) => f.status == FamilyStatus.eligible).length;
-    final totalAidAmount = aidRepo.getTotalAmount();
+    final totalAidAmount = aids.fold<double>(0, (sum, a) => sum + a.amount);
     final distributedAid = aids.where((a) => a.status == AidStatus.distributed).length;
     final pendingAid = aids.where((a) => a.status == AidStatus.pending).length;
     final totalMembers = families.fold(0, (s, f) => s + f.membersCount);
@@ -197,14 +211,12 @@ class ReportsPage extends ConsumerWidget {
                   children: [
                     Expanded(child: _ReportCardWidget(
                       report: left, isDark: isDark,
-                      subsRepo: subsRepo, famRepo: famRepo, aidRepo: aidRepo,
                       subs: subs, families: families, aids: aids,
                     )),
                     const SizedBox(width: 12),
                     if (right != null)
                       Expanded(child: _ReportCardWidget(
                         report: right, isDark: isDark,
-                        subsRepo: subsRepo, famRepo: famRepo, aidRepo: aidRepo,
                         subs: subs, families: families, aids: aids,
                       ))
                     else
@@ -216,6 +228,38 @@ class ReportsPage extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ── Error State ────────────────────────────────────────────────────────────────
+class _ReportsError extends StatelessWidget {
+  final VoidCallback onRetry;
+  const _ReportsError({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.cloud_off_rounded, size: 48, color: AppColors.error),
+            const SizedBox(height: 12),
+            Text(
+              'تعذّر تحميل البيانات',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.cairo(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: onRetry,
+              child: const Text('إعادة المحاولة'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

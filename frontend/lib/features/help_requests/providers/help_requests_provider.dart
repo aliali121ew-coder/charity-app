@@ -1,9 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:charity_app/features/help_requests/data/mock_help_requests_repository.dart';
+import 'package:charity_app/features/help_requests/data/supabase_help_requests_repository.dart';
 import 'package:charity_app/features/help_requests/domain/entities/help_request.dart';
 import 'package:charity_app/features/help_requests/domain/entities/request_status.dart';
 import 'package:charity_app/features/help_requests/domain/entities/request_type.dart';
-import 'package:charity_app/features/help_requests/domain/repositories/help_requests_repository.dart';
+import 'package:charity_app/shared/providers/supabase_repository_providers.dart';
 
 class HelpRequestsState {
   final List<HelpRequest> all;
@@ -48,14 +48,42 @@ class HelpRequestsState {
   }
 }
 
+/// HelpRequestsNotifier مدعوم بـ Supabase.
+/// نفس واجهة النسخة القديمة (نفس الحقول والدوال) حتى لا تتغيّر الصفحات:
+///  - التحميل الأولي async من Supabase (getAll)، ثم الفلترة/البحث محلياً على state.all.
+///  - getById يقرأ محلياً من state.all (متزامن) مطابقةً لـ works_provider.
+///  - addRequest/updateRequest يكتبان في Supabase (async) ثم يحدّثان الحالة
+///    ويُبطلان helpRequestsListProvider ليبقى مزوّد القراءة العام محدّثاً.
 class HelpRequestsNotifier extends StateNotifier<HelpRequestsState> {
-  final HelpRequestsRepository _repo;
+  final SupabaseHelpRequestsRepository _repo = SupabaseHelpRequestsRepository();
+  final Ref _ref;
 
-  HelpRequestsNotifier(this._repo)
-      : super(HelpRequestsState(
-          all: _repo.getAll(),
-          filtered: _repo.getAll(),
-        ));
+  HelpRequestsNotifier(this._ref)
+      : super(const HelpRequestsState(
+          all: [],
+          filtered: [],
+          isLoading: true,
+        )) {
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final all = await _repo.getAll();
+      state = state.copyWith(
+        all: all,
+        filtered: _applyFilters(
+            query: state.query, type: state.typeFilter, status: state.statusFilter),
+        isLoading: false,
+        error: null,
+      );
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  /// إعادة تحميل من الخادم (مفيدة للسحب-للتحديث).
+  Future<void> reload() => _load();
 
   void search(String query) {
     state = state.copyWith(
@@ -93,9 +121,9 @@ class HelpRequestsNotifier extends StateNotifier<HelpRequestsState> {
     );
   }
 
-  void addRequest(HelpRequest request) {
-    _repo.add(request);
-    final all = _repo.getAll();
+  Future<void> addRequest(HelpRequest request) async {
+    final created = await _repo.add(request);
+    final all = [created, ...state.all];
     state = state.copyWith(
       all: all,
       filtered: _applyFilters(
@@ -103,12 +131,15 @@ class HelpRequestsNotifier extends StateNotifier<HelpRequestsState> {
           type: state.typeFilter,
           status: state.statusFilter),
     );
+    _ref.invalidate(helpRequestsListProvider);
   }
 
-  bool updateRequest(HelpRequest request) {
-    final updated = _repo.update(request);
+  Future<bool> updateRequest(HelpRequest request) async {
+    final updated = await _repo.update(request);
     if (updated == null) return false;
-    final all = _repo.getAll();
+    final all = state.all
+        .map((r) => r.id == updated.id ? updated : r)
+        .toList();
     state = state.copyWith(
       all: all,
       filtered: _applyFilters(
@@ -116,17 +147,23 @@ class HelpRequestsNotifier extends StateNotifier<HelpRequestsState> {
           type: state.typeFilter,
           status: state.statusFilter),
     );
+    _ref.invalidate(helpRequestsListProvider);
     return true;
   }
 
-  HelpRequest? getById(String id) => _repo.getById(id);
+  HelpRequest? getById(String id) {
+    for (final r in state.all) {
+      if (r.id == id) return r;
+    }
+    return null;
+  }
 
   List<HelpRequest> _applyFilters({
     required String query,
     RequestType? type,
     RequestStatus? status,
   }) {
-    var list = _repo.getAll().toList();
+    var list = state.all.toList();
 
     if (type != null) list = list.where((r) => r.type == type).toList();
     if (status != null) list = list.where((r) => r.status == status).toList();
@@ -149,5 +186,5 @@ class HelpRequestsNotifier extends StateNotifier<HelpRequestsState> {
 
 final helpRequestsProvider =
     StateNotifierProvider<HelpRequestsNotifier, HelpRequestsState>((ref) {
-  return HelpRequestsNotifier(MockHelpRequestsRepository());
+  return HelpRequestsNotifier(ref);
 });

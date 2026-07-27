@@ -1,43 +1,83 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
-import 'package:charity_app/shared/providers/app_providers.dart';
+import 'package:charity_app/features/competitions/data/supabase_engagement_repository.dart';
 import 'package:charity_app/features/competitions/domain/competition_models.dart';
 
 const _uuid = Uuid();
-const _kPointsKey = 'user_points_v1';
 
 // ════════════════════════════════════════════════════════════════════════════
-//  رصيد نقاط المستخدم — يُحفظ ويُسترجع.
+//  رصيد نقاط المستخدم — مدعوم بـ Supabase.
+//  • مصدر الحقيقة هو points_ledger/user_engagement_stats عبر دوال RPC
+//    (get_points_balance / award_points) لأن RLS يمنع الكتابة المباشرة.
+//  • نفس الواجهة العامة تماماً (StateNotifier<int> + add/deduct) حتى لا تتغيّر
+//    الصفحات: الحالة هي رصيد int، تُحمّل async في الباني.
+//  • add/deduct تبقيان بتوقيع متزامن (كما كانتا): تُحدّثان الحالة تفاؤلياً ثم
+//    تستدعيان RPC في الخلفية وتزامنان الرصيد الحقيقي بعدها.
+//  • بلا جلسة Supabase (auth.uid == null): القراءة تُرجع 0، وطفرات RPC ترمي
+//    داخلياً فنُبقي التحديث التفاؤلي المحلي لإبقاء الواجهة قابلة للتجربة.
 // ════════════════════════════════════════════════════════════════════════════
 class UserPointsNotifier extends StateNotifier<int> {
-  final SharedPreferences _prefs;
-  UserPointsNotifier(this._prefs) : super(_prefs.getInt(_kPointsKey) ?? 2840);
+  final SupabaseEngagementRepository _repo = SupabaseEngagementRepository();
+
+  UserPointsNotifier() : super(0) {
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      state = await _repo.getBalance();
+    } catch (_) {
+      // تعذّر الاتصال/لا جلسة — نُبقي الرصيد الحالي بدل الانهيار.
+    }
+  }
+
+  /// إعادة تحميل الرصيد من الخادم.
+  Future<void> reload() => _load();
 
   void add(int amount) {
     state = (state + amount).clamp(0, 1 << 30);
-    _prefs.setInt(_kPointsKey, state);
+    _syncAward(amount);
   }
 
-  /// خصم النقاط — يُرجع true إن نجح (الرصيد كافٍ).
+  /// خصم النقاط — يُرجع true إن نجح (الرصيد المعروف كافٍ).
   bool deduct(int amount) {
     if (state < amount) return false;
     state = state - amount;
-    _prefs.setInt(_kPointsKey, state);
+    _syncAward(-amount);
     return true;
+  }
+
+  /// تعديل تفاؤلي محلي للرصيد فقط دون استدعاء RPC — يُستخدم عندما تكون حركة
+  /// النقاط قد تمّت أصلاً في القاعدة داخل RPC آخر (مثل redeem_store_prize)،
+  /// فنتجنّب الخصم المزدوج على الخادم ونكتفي بمزامنة العرض محلياً.
+  void applyLocalDelta(int delta) {
+    state = (state + delta).clamp(0, 1 << 30);
+  }
+
+  /// يرسل الحركة إلى القاعدة عبر award_points ثم يزامن الرصيد الحقيقي.
+  Future<void> _syncAward(int delta) async {
+    try {
+      final balance = await _repo.award(delta, reason: 'adjustment');
+      state = balance;
+    } catch (_) {
+      // بلا جلسة أو تعذّر الاتصال — نُبقي التحديث التفاؤلي المحلي.
+    }
   }
 }
 
 final userPointsProvider =
     StateNotifierProvider<UserPointsNotifier, int>((ref) {
-  final prefs = ref.watch(sharedPreferencesProvider);
-  return UserPointsNotifier(prefs);
+  return UserPointsNotifier();
 });
 
 // ════════════════════════════════════════════════════════════════════════════
 //  بطاقات المطالبة بالجوائز ("جوائزي")
 //  - تُنشأ عند فوز المستخدم (أعلى النقاط — تلقائي).
 //  - تُخصم النقاط فقط عند تأكيد الاستلام الفعلي من المشرف.
+//  ملاحظة: جدول claim_cards خارج نطاق هذه المهمة (النقاط/الختمة/الاستبدال/
+//  المشاركات)، ولا توجد له دالة RPC؛ لذا تبقى هذه الحالة محلية كما كانت،
+//  لكن خصم النقاط عند تأكيد الاستلام يمرّ الآن عبر userPointsProvider المدعوم
+//  بـ Supabase (award_points).
 // ════════════════════════════════════════════════════════════════════════════
 class ClaimsNotifier extends StateNotifier<List<ClaimCard>> {
   final Ref _ref;

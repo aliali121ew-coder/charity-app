@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:uuid/uuid.dart';
 import 'package:charity_app/core/theme/app_colors.dart';
+import 'package:charity_app/features/donations/data/supabase_donations_repository.dart';
 
 // ── Enums ─────────────────────────────────────────────────────────────────────
 
@@ -115,49 +115,8 @@ class OperationRecord {
 }
 
 // ── Initial mock data ─────────────────────────────────────────────────────────
-
-final _initialTransfers = [
-  TransferRecord(id: 'TRF-001', donor: 'أحمد محمد علي', amount: 500000,
-      method: PaymentMethod.zainCash, date: DateTime(2026, 3, 15, 14, 30),
-      status: 'مكتمل', reference: 'ZC-884712',
-      statusColor: AppColors.statusActiveText, statusBg: AppColors.statusActiveBg,
-      avatarInitials: 'أم', avatarColor: const Color(0xFF6366F1)),
-  TransferRecord(id: 'TRF-002', donor: 'سارة حسين الكريم', amount: 1200000,
-      method: PaymentMethod.visaCard, date: DateTime(2026, 3, 14, 9, 15),
-      status: 'مكتمل', reference: 'VS-229041',
-      statusColor: AppColors.statusActiveText, statusBg: AppColors.statusActiveBg,
-      avatarInitials: 'سح', avatarColor: const Color(0xFFEC4899)),
-  TransferRecord(id: 'TRF-003', donor: 'محمد عبد الرحمن', amount: 250000,
-      method: PaymentMethod.cash, date: DateTime(2026, 3, 14, 11, 0),
-      status: 'مكتمل', reference: 'CSH-004',
-      statusColor: AppColors.statusActiveText, statusBg: AppColors.statusActiveBg,
-      avatarInitials: 'مع', avatarColor: const Color(0xFF10B981)),
-  TransferRecord(id: 'TRF-004', donor: 'فاطمة القاسم', amount: 3000000,
-      method: PaymentMethod.bankTransfer, date: DateTime(2026, 3, 13, 16, 45),
-      status: 'قيد المعالجة', reference: 'BNK-IQ44128',
-      statusColor: AppColors.statusPendingText, statusBg: AppColors.statusPendingBg,
-      avatarInitials: 'فق', avatarColor: const Color(0xFFF59E0B)),
-  TransferRecord(id: 'TRF-005', donor: 'علي جعفر مهدي', amount: 750000,
-      method: PaymentMethod.masterCard, date: DateTime(2026, 3, 13, 8, 30),
-      status: 'مكتمل', reference: 'MC-774920',
-      statusColor: AppColors.statusActiveText, statusBg: AppColors.statusActiveBg,
-      avatarInitials: 'عج', avatarColor: const Color(0xFF8B5CF6)),
-  TransferRecord(id: 'TRF-006', donor: 'نور الهدى سالم', amount: 100000,
-      method: PaymentMethod.zainCash, date: DateTime(2026, 3, 12, 13, 20),
-      status: 'مرفوض', reference: 'ZC-998821',
-      statusColor: AppColors.statusRejectedText, statusBg: AppColors.statusRejectedBg,
-      avatarInitials: 'نس', avatarColor: const Color(0xFFEF4444)),
-  TransferRecord(id: 'TRF-007', donor: 'خالد عمر البصري', amount: 2500000,
-      method: PaymentMethod.bankTransfer, date: DateTime(2026, 3, 11, 10, 0),
-      status: 'مكتمل', reference: 'BNK-IQ77531',
-      statusColor: AppColors.statusActiveText, statusBg: AppColors.statusActiveBg,
-      avatarInitials: 'خع', avatarColor: const Color(0xFF06B6D4)),
-  TransferRecord(id: 'TRF-008', donor: 'رنا حميد الجبوري', amount: 500000,
-      method: PaymentMethod.visaCard, date: DateTime(2026, 3, 10, 15, 10),
-      status: 'مكتمل', reference: 'VS-662341',
-      statusColor: AppColors.statusActiveText, statusBg: AppColors.statusActiveBg,
-      avatarInitials: 'رح', avatarColor: const Color(0xFFF97316)),
-];
+// ملاحظة: بيانات التحويلات المبدئية (mock) أُزيلت لأن قائمة التحويلات صارت تُحمّل
+// من Supabase عبر SupabaseDonationsRepository (انظر DonationsNotifier أدناه).
 
 final _initialOperations = [
   OperationRecord(action: 'تأكيد تبرع', description: 'تم تأكيد تبرع 1,200,000 د.ع من سارة حسين عبر Visa', user: 'المشرف أحمد', date: DateTime(2026, 3, 14, 9, 20), color: AppColors.logApprove, icon: Icons.check_circle_rounded),
@@ -184,72 +143,57 @@ final _initialOperations = [
   }
 }
 
-const _avatarColors = [
-  Color(0xFF6366F1), Color(0xFFEC4899), Color(0xFF10B981),
-  Color(0xFFF59E0B), Color(0xFF8B5CF6), Color(0xFFEF4444),
-  Color(0xFF06B6D4), Color(0xFFF97316), Color(0xFF14B8A6),
-];
-
 // ── Donations Notifier ────────────────────────────────────────────────────────
 
+/// DonationsNotifier مدعوم بـ Supabase (جدول donations عبر SupabaseDonationsRepository).
+/// نفس الواجهة العامة تماماً (List<TransferRecord> + addTransfer/updateStatus/removeTransfer)
+/// حتى لا تتغيّر donations_page/transfer_history_tab/transfer_detail:
+///  - التحميل الأولي async من Supabase (getAll)، ويبدأ بقائمة فارغة ثم يملؤها.
+///  - addTransfer/updateStatus/removeTransfer تكتب في Supabase ثم تُعيد التحميل (refresh).
+///  - الفلترة/البحث تبقى محلية ومتزامنة عبر filteredDonationsProvider (لم تتغيّر).
+///  - الملخّص المعروض (الإجمالي/عدد المتبرعين/قيد المعالجة) يُشتقّ محلياً من القائمة،
+///    وبذلك يصبح مدعوماً بـ Supabase تلقائياً دون تغيير الصفحات.
 class DonationsNotifier extends StateNotifier<List<TransferRecord>> {
-  DonationsNotifier() : super(List.from(_initialTransfers));
+  final SupabaseDonationsRepository _repo = SupabaseDonationsRepository();
 
-  void addTransfer({
+  DonationsNotifier() : super(const []) {
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      state = await _repo.getAll();
+    } catch (_) {
+      // في حال تعذّر الاتصال نُبقي الحالة الحالية (فارغة) بدل الانهيار.
+    }
+  }
+
+  /// إعادة تحميل من الخادم (مفيدة للسحب-للتحديث).
+  Future<void> reload() => _load();
+
+  Future<void> addTransfer({
     required String donor,
     required double amount,
     required PaymentMethod method,
     String status = 'مكتمل',
-  }) {
-    const uuid = Uuid();
-    final prefix = method == PaymentMethod.zainCash
-        ? 'ZC'
-        : method == PaymentMethod.visaCard
-            ? 'VS'
-            : method == PaymentMethod.masterCard
-                ? 'MC'
-                : method == PaymentMethod.bankTransfer
-                    ? 'BNK'
-                    : 'CSH';
-    final ref = '$prefix-${(DateTime.now().millisecondsSinceEpoch % 1000000)}';
-    final initials = donor.trim().split(' ').take(2).map((w) => w[0]).join();
-    final colorIndex = state.length % _avatarColors.length;
-    final colors = statusColors(status);
-
-    final record = TransferRecord(
-      id: 'TRF-${uuid.v4().substring(0, 6).toUpperCase()}',
+  }) async {
+    await _repo.create(
       donor: donor,
       amount: amount,
       method: method,
-      date: DateTime.now(),
       status: status,
-      reference: ref,
-      statusColor: colors.$1,
-      statusBg: colors.$2,
-      avatarInitials: initials.isNotEmpty ? initials : donor[0],
-      avatarColor: _avatarColors[colorIndex],
     );
-
-    state = [record, ...state];
+    await _load();
   }
 
-  void updateStatus(String id, String newStatus) {
-    final colors = statusColors(newStatus);
-    state = state.map((t) {
-      if (t.id != id) return t;
-      return TransferRecord(
-        id: t.id, donor: t.donor, amount: t.amount,
-        method: t.method, date: t.date, reference: t.reference,
-        avatarInitials: t.avatarInitials, avatarColor: t.avatarColor,
-        status: newStatus,
-        statusColor: colors.$1,
-        statusBg: colors.$2,
-      );
-    }).toList();
+  Future<void> updateStatus(String id, String newStatus) async {
+    await _repo.updateStatus(id, newStatus);
+    await _load();
   }
 
-  void removeTransfer(String id) {
-    state = state.where((t) => t.id != id).toList();
+  Future<void> removeTransfer(String id) async {
+    await _repo.delete(id);
+    await _load();
   }
 }
 
@@ -259,6 +203,8 @@ final donationsProvider =
 });
 
 // ── Operations Notifier ───────────────────────────────────────────────────────
+// TODO(supabase): سجل العمليات (operations log) لا يزال محلياً على بيانات مبدئية.
+// خارج نطاق هذه المهمة (القائمة/الملخّص فقط) — يمكن ربطه لاحقاً بجدول سجل مخصّص.
 
 class OperationsNotifier extends StateNotifier<List<OperationRecord>> {
   OperationsNotifier() : super(List.from(_initialOperations));
@@ -313,6 +259,8 @@ final filteredDonationsProvider = Provider<List<TransferRecord>>((ref) {
 });
 
 // ── UI Providers (donate flow) ────────────────────────────────────────────────
+// TODO(supabase): حالة تدفّق الدفع (اختيار البطاقة/المبلغ) وبوّابات الدفع الفعلية
+// (payment_flow_provider + MyFatoorah/ZainCash) تبقى محلية دون تغيير في هذه المهمة.
 
 final selectedMethodIndexProvider = StateProvider<int>((ref) => 0);
 final selectedAmountProvider = StateProvider<double?>((ref) => null);

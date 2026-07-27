@@ -7,7 +7,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import 'package:charity_app/core/theme/app_colors.dart';
-import 'package:charity_app/features/families/presentation/pages/families_page.dart'; // to get getLateSubscribersData()
+import 'package:charity_app/features/families/presentation/pages/families_page.dart'; // fetchLateSubscribersData() — Supabase-backed
 
 class AnalysisPdfPage extends StatefulWidget {
   const AnalysisPdfPage({super.key});
@@ -63,8 +63,8 @@ class _AnalysisPdfPageState extends State<AnalysisPdfPage> {
       bold: cairoBold,
     );
 
-    // Fetch the list of overdue subscribers
-    final data = getLateSubscribersData();
+    // Fetch the list of overdue subscribers from Supabase (real data)
+    final data = await fetchLateSubscribersData();
 
     // Compute metrics
     final totalLateCount = data.length;

@@ -1,8 +1,11 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:uuid/uuid.dart';
+import 'package:charity_app/core/supabase/supabase_storage_service.dart';
 import 'package:charity_app/core/theme/app_colors.dart';
 import 'package:charity_app/features/help_requests/domain/entities/help_request.dart';
 import 'package:charity_app/features/help_requests/domain/entities/request_type.dart';
@@ -12,6 +15,7 @@ import 'package:charity_app/features/help_requests/domain/entities/location_info
 import 'package:charity_app/features/help_requests/domain/entities/media_attachment.dart';
 import 'package:charity_app/features/help_requests/providers/help_requests_provider.dart';
 import 'package:charity_app/features/help_requests/providers/location_provider.dart';
+import 'package:charity_app/shared/providers/supabase_repository_providers.dart';
 import 'package:charity_app/features/help_requests/widgets/form_sections/shared_fields_section.dart';
 import 'package:charity_app/features/help_requests/widgets/form_sections/general_help_section.dart';
 import 'package:charity_app/features/help_requests/widgets/form_sections/doctor_booking_section.dart';
@@ -44,6 +48,8 @@ class _HelpRequestFormPageState extends ConsumerState<HelpRequestFormPage> {
   Map<String, String> _sharedData = {};
   Map<String, String> _typeData = {};
   List<MediaAttachment> _attachments = [];
+  // بايتات الصور المُلتقطة من الجهاز، مفهرسة بمعرّف المرفق. تُرفع في _submit.
+  Map<String, Uint8List> _pendingBytes = {};
   bool _isSubmitting = false;
   HelpRequest? _editRequest;
 
@@ -56,10 +62,14 @@ class _HelpRequestFormPageState extends ConsumerState<HelpRequestFormPage> {
     );
 
     if (widget.editId != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        final request =
-            ref.read(helpRequestsProvider.notifier).getById(widget.editId!);
-        if (request != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        // نجلب الطلب (بمرفقاته) من Supabase مباشرةً بدل الاعتماد على state.all
+        // الذي قد يكون فارغاً أثناء التحميل غير المتزامن، ولأنّ قوائم getAll
+        // تعيد الطلبات دون مرفقات بحسب عقد المستودع.
+        final request = await ref
+            .read(supabaseHelpRequestsRepositoryProvider)
+            .getById(widget.editId!);
+        if (request != null && mounted) {
           setState(() {
             _editRequest = request;
             _type = request.type;
@@ -118,6 +128,12 @@ class _HelpRequestFormPageState extends ConsumerState<HelpRequestFormPage> {
     setState(() => _isSubmitting = true);
     await Future.delayed(const Duration(milliseconds: 600));
 
+    // رفع الصور المُلتقطة إلى Supabase Storage قبل الحفظ، واستبدال المسار
+    // الحارس (local:<id>) بالمسار الحقيقيّ. يُغلَّف بالكامل بـ try/catch:
+    // إذا لم توجد جلسة Supabase Auth (مصادقة وهميّة) نُظهر رسالة لطيفة ونحفظ
+    // الطلب دون storage_path بدل الانهيار.
+    final uploadedAttachments = await _uploadPendingImages();
+
     final urgency = UrgencyLevel.values.firstWhere(
       (u) => u.name == (_sharedData[SharedFieldKeys.urgency] ?? ''),
       orElse: () => UrgencyLevel.medium,
@@ -135,17 +151,32 @@ class _HelpRequestFormPageState extends ConsumerState<HelpRequestFormPage> {
         urgency: urgency,
         familySize: familySize,
         notes: _sharedData[SharedFieldKeys.notes],
-        attachments: _attachments,
+        attachments: uploadedAttachments,
         typeData: _typeData,
       );
-      ref.read(helpRequestsProvider.notifier).updateRequest(updated);
+      bool ok = false;
+      String? failMsg;
+      try {
+        ok = await ref.read(helpRequestsProvider.notifier).updateRequest(updated);
+        if (!ok) failMsg = 'تعذّر تحديث الطلب (انتهت مهلة التعديل أو الطلب غير موجود)';
+      } catch (e) {
+        failMsg = 'تعذّر حفظ التعديلات: $e';
+      }
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('تم تحديث الطلب بنجاح', style: GoogleFonts.cairo()),
-          backgroundColor: AppColors.success,
-          behavior: SnackBarBehavior.floating,
-        ));
-        context.pop();
+        if (ok) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('تم تحديث الطلب بنجاح', style: GoogleFonts.cairo()),
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+          ));
+          context.pop();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(failMsg ?? 'تعذّر تحديث الطلب', style: GoogleFonts.cairo()),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+          ));
+        }
       }
     } else {
       final request = HelpRequest(
@@ -164,22 +195,98 @@ class _HelpRequestFormPageState extends ConsumerState<HelpRequestFormPage> {
         familySize: familySize,
         notes: _sharedData[SharedFieldKeys.notes],
         location: location,
-        attachments: _attachments,
+        attachments: uploadedAttachments,
         typeData: _typeData,
       );
-      ref.read(helpRequestsProvider.notifier).addRequest(request);
+      String? failMsg;
+      try {
+        await ref.read(helpRequestsProvider.notifier).addRequest(request);
+      } catch (e) {
+        failMsg = 'تعذّر تقديم الطلب: $e';
+      }
       if (mounted) {
-        final messenger = ScaffoldMessenger.of(context);
-        context.go('/help-requests');
-        messenger.showSnackBar(SnackBar(
-          content: Text('تم تقديم الطلب بنجاح ✓', style: GoogleFonts.cairo()),
-          backgroundColor: AppColors.success,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 3),
-        ));
+        if (failMsg == null) {
+          final messenger = ScaffoldMessenger.of(context);
+          context.go('/help-requests');
+          messenger.showSnackBar(SnackBar(
+            content: Text('تم تقديم الطلب بنجاح ✓', style: GoogleFonts.cairo()),
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 3),
+          ));
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(failMsg, style: GoogleFonts.cairo()),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+          ));
+        }
       }
     }
     if (mounted) setState(() => _isSubmitting = false);
+  }
+
+  /// يرفع كل صورة تحمل بايتات مُلتقطة (mockPath يبدأ بـ `local:`) إلى
+  /// help-media ويعيد نسخة من قائمة المرفقات مع استبدال المسار الحارس بالمسار
+  /// الحقيقيّ. المرفقات الصوتيّة والصور المرفوعة سابقاً تُترك كما هي.
+  ///
+  /// عند فشل الرفع (غالباً لعدم وجود جلسة Supabase Auth حقيقيّة — المصادقة
+  /// الحاليّة وهميّة) نُظهر رسالة عربيّة لطيفة مرّة واحدة ونحفظ المرفقات
+  /// المتأثّرة بمسار فارغ (دون storage_path) بدل الانهيار.
+  Future<List<MediaAttachment>> _uploadPendingImages() async {
+    // لا شيء لرفعه.
+    if (_pendingBytes.isEmpty) return _attachments;
+
+    const storage = SupabaseStorageService();
+    final result = <MediaAttachment>[];
+    var showedError = false;
+
+    for (final a in _attachments) {
+      final bytes = _pendingBytes[a.id];
+      final isLocal = a.isImage && (a.mockPath?.startsWith('local:') ?? false);
+
+      // نرفع فقط الصور المُلتقطة حديثاً (تحمل بايتات ومسار حارس).
+      // شرط bytes == null مباشرةً هنا ليتحقّق ترقية النوع (promotion) لـ bytes.
+      if (!isLocal || bytes == null) {
+        result.add(a);
+        continue;
+      }
+
+      try {
+        final storedPath = await storage.uploadHelpImage(bytes, a.name);
+        result.add(MediaAttachment(
+          id: a.id,
+          type: a.type,
+          name: a.name,
+          mockPath: storedPath,
+          durationSeconds: a.durationSeconds,
+          createdAt: a.createdAt,
+        ));
+      } catch (e) {
+        // فشل الرفع (StateError لعدم تسجيل الدخول، أو خطأ RLS/شبكة):
+        // نحفظ المرفق بمسار فارغ ونُظهر تنبيهاً لطيفاً مرّة واحدة.
+        if (!showedError && mounted) {
+          showedError = true;
+          final msg = e is StateError
+              ? e.message
+              : 'تعذّر رفع الصور (سيتم حفظ الطلب بدون الصور)';
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(msg, style: GoogleFonts.cairo()),
+            backgroundColor: AppColors.warning,
+            behavior: SnackBarBehavior.floating,
+          ));
+        }
+        result.add(MediaAttachment(
+          id: a.id,
+          type: a.type,
+          name: a.name,
+          mockPath: '',
+          durationSeconds: a.durationSeconds,
+          createdAt: a.createdAt,
+        ));
+      }
+    }
+    return result;
   }
 
   @override
@@ -278,6 +385,7 @@ class _HelpRequestFormPageState extends ConsumerState<HelpRequestFormPage> {
             MediaAttachmentSection(
               attachments: _attachments,
               onChanged: (a) => setState(() => _attachments = a),
+              onBytesChanged: (b) => _pendingBytes = b,
             ),
             const SizedBox(height: 80),
           ],
